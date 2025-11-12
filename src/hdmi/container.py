@@ -1,0 +1,93 @@
+"""Container - Runtime phase for dependency injection.
+
+The Container is an immutable, validated dependency graph that resolves
+service instances lazily (just-in-time) when requested.
+"""
+
+import inspect
+from typing import TYPE_CHECKING, Type, TypeVar, get_type_hints
+
+if TYPE_CHECKING:
+    from hdmi.builder import ServiceRegistration
+
+T = TypeVar("T")
+
+
+class Container:
+    """Immutable container for resolving service instances at runtime.
+
+    The Container is produced by ContainerBuilder.build() and is:
+    - Immutable: cannot be modified after creation
+    - Pre-validated: all configuration errors caught during build
+    - Lazy: services instantiated only when first requested via get()
+    """
+
+    def __init__(self, registrations: dict[Type, "ServiceRegistration"]):
+        """Initialize Container with validated registrations.
+
+        This should only be called by ContainerBuilder.build().
+
+        Args:
+            registrations: Validated service registrations from builder
+        """
+        self._registrations = registrations
+        self._singletons: dict[Type, object] = {}
+
+    def get(self, service_type: Type[T]) -> T:
+        """Resolve a service instance (lazy instantiation).
+
+        Args:
+            service_type: The service type to resolve
+
+        Returns:
+            An instance of the service type
+
+        Raises:
+            KeyError: If the service type is not registered
+        """
+        registration = self._registrations[service_type]
+
+        # Handle singleton scope
+        if registration.scope == "singleton":
+            if service_type not in self._singletons:
+                self._singletons[service_type] = self._create_instance(service_type)
+            return self._singletons[service_type]  # type: ignore
+
+        # Handle transient scope (new instance every time)
+        return self._create_instance(service_type)  # type: ignore
+
+    def _create_instance(self, service_type: Type[T]) -> T:
+        """Create an instance of a service, resolving dependencies.
+
+        Args:
+            service_type: The service type to instantiate
+
+        Returns:
+            An instance with all dependencies resolved
+        """
+        # Get the __init__ signature
+        try:
+            sig = inspect.signature(service_type.__init__)
+        except ValueError:
+            # If we can't get signature, try without parameters
+            return service_type()  # type: ignore
+
+        # Get type hints for the __init__ method
+        try:
+            hints = get_type_hints(service_type.__init__)
+        except Exception:
+            hints = {}
+
+        # Resolve dependencies from type annotations
+        kwargs = {}
+        for param_name, param in sig.parameters.items():
+            if param_name == "self":
+                continue
+
+            # Get the type annotation for this parameter
+            if param_name in hints:
+                dependency_type = hints[param_name]
+                # Recursively resolve the dependency
+                kwargs[param_name] = self.get(dependency_type)
+
+        return service_type(**kwargs)  # type: ignore
