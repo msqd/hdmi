@@ -90,3 +90,23 @@ def test_factory_must_be_callable():
     """factory parameter must be callable when provided."""
     with pytest.raises(ValueError, match="factory must be callable"):
         ServiceDefinition(SimpleService, factory="not_callable")  # type: ignore
+
+
+def test_autowire_defaults_to_true():
+    """autowire parameter defaults to True when not provided."""
+    definition = ServiceDefinition(SimpleService)
+
+    assert definition.autowire is True
+
+
+def test_autowire_can_be_provided():
+    """autowire parameter can be provided as a boolean."""
+    definition = ServiceDefinition(SimpleService, autowire=False)
+
+    assert definition.autowire is False
+
+
+def test_autowire_must_be_keyword():
+    """autowire parameter must be passed as keyword, not positional."""
+    with pytest.raises(TypeError):
+        ServiceDefinition(SimpleService, "singleton", None, None, True)  # type: ignore

@@ -16,6 +16,7 @@ class ServiceDefinition:
         scope: Scope = "singleton",
         name: str | None = None,
         factory: Callable[..., Any] | None = None,
+        autowire: bool = True,
     ):
         if factory is not None and not callable(factory):
             raise ValueError("factory must be callable")
@@ -24,3 +25,4 @@ class ServiceDefinition:
         self.scope = scope
         self.name = name
         self.factory = factory
+        self.autowire = autowire
