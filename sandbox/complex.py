@@ -8,7 +8,7 @@ class Config:
 
 
 class Context:
-    def __init__(self, *, config: Config = None):
+    def __init__(self, *, config: Config | None = None):
         print(f"{type(self).__name__} < {id(self)} > :: __init__()")
         self.data = {}
         self.config = config if config is not None else Config()
@@ -29,7 +29,7 @@ class Something:
 def main():
     builder = ContainerBuilder()
 
-    # builder.register(Config)
+    builder.register(Config, autowire=False)  # Disable autowiring for Config
     builder.register(Context)
     builder.register(Something)
 
@@ -37,6 +37,9 @@ def main():
 
     something = container.get(Something)
     print(something, something.context)
+    print(f"Context's config: {something.context.config}")
+    print(f"Container's config: {container.get(Config)}")
+    print(f"Are they the same? {something.context.config is container.get(Config)}")
 
 
 if __name__ == "__main__":

@@ -165,3 +165,111 @@ def test_container_scope_returns_scoped_container():
     scoped = container.scope()
 
     assert isinstance(scoped, ScopedContainer)
+
+
+class Config:
+    """A configuration service."""
+
+    def __init__(self):
+        self.value = "default_config"
+
+
+class ServiceWithOptionalDependency:
+    """A service with an optional dependency."""
+
+    def __init__(self, *, config: Config | None = None):
+        self.config = config if config is not None else Config()
+
+
+def test_container_skips_unregistered_optional_dependency():
+    """Container does not inject optional dependencies that are not registered.
+
+    When a parameter has a default value and its type is not registered in the
+    container, the container should skip injection and let the class use its default.
+    """
+    from hdmi import ContainerBuilder
+
+    builder = ContainerBuilder()
+    # Note: Config is NOT registered
+    builder.register(ServiceWithOptionalDependency)
+    container = builder.build()
+
+    service = container.get(ServiceWithOptionalDependency)
+
+    # Service should be created successfully
+    assert isinstance(service, ServiceWithOptionalDependency)
+    # Config should use the default (created inside __init__)
+    assert isinstance(service.config, Config)
+    assert service.config.value == "default_config"
+
+
+def test_container_injects_registered_optional_dependency_with_autowire_true():
+    """Container injects optional dependencies that are registered with autowire=True.
+
+    When a parameter has a default value but its type is registered with autowire=True,
+    the container should inject it.
+    """
+    from hdmi import ContainerBuilder
+
+    builder = ContainerBuilder()
+    builder.register(Config, autowire=True)  # Explicitly autowire=True
+    builder.register(ServiceWithOptionalDependency)
+    container = builder.build()
+
+    service = container.get(ServiceWithOptionalDependency)
+    injected_config = container.get(Config)
+
+    # Config should be injected from the container
+    assert isinstance(service, ServiceWithOptionalDependency)
+    assert service.config is injected_config
+
+
+def test_container_skips_registered_optional_dependency_with_autowire_false():
+    """Container does not inject optional dependencies when autowire=False.
+
+    When a parameter has a default value and its type is registered with autowire=False,
+    the container should NOT inject it into optional dependencies.
+    """
+    from hdmi import ContainerBuilder
+
+    builder = ContainerBuilder()
+    builder.register(Config, autowire=False)  # Disable autowiring
+    builder.register(ServiceWithOptionalDependency)
+    container = builder.build()
+
+    service = container.get(ServiceWithOptionalDependency)
+
+    # Config should use the default (not injected)
+    assert isinstance(service, ServiceWithOptionalDependency)
+    assert isinstance(service.config, Config)
+    # Should be a different instance (not the singleton from container)
+    container_config = container.get(Config)
+    assert service.config is not container_config
+
+
+class ServiceWithRequiredDependency:
+    """A service with a required dependency (no default)."""
+
+    def __init__(self, config: Config):
+        self.config = config
+
+
+def test_container_always_injects_required_dependency():
+    """Container always injects required dependencies regardless of autowire setting.
+
+    When a parameter has no default value, it's a required dependency and should
+    always be injected, even if autowire=False.
+    """
+    from hdmi import ContainerBuilder
+
+    builder = ContainerBuilder()
+    builder.register(Config, autowire=False)  # autowire disabled
+    builder.register(ServiceWithRequiredDependency)
+    container = builder.build()
+
+    service = container.get(ServiceWithRequiredDependency)
+
+    # Config should still be injected (required dependency)
+    assert isinstance(service, ServiceWithRequiredDependency)
+    container_config = container.get(Config)
+    assert service.config is container_config  # Same instance
