@@ -30,10 +30,10 @@ async def test_complete_dependency_chain():
 
     # Build the container
     builder = ContainerBuilder()
-    builder.register(Config, scope="singleton")
-    builder.register(Database, scope="singleton")
-    builder.register(Repository, scope="scoped")
-    builder.register(Service, scope="transient")
+    builder.register(Config)
+    builder.register(Database)
+    builder.register(Repository, scoped=True)
+    builder.register(Service, scoped=True, transient=True)  # scoped transient - requires scope, new instance each time
 
     async with builder.build() as container:
         # Service depends on scoped Repository, so must be resolved through a scope
@@ -69,8 +69,8 @@ async def test_singleton_sharing_across_transients():
     SingletonCounter.instance_count = 0
 
     builder = ContainerBuilder()
-    builder.register(SingletonCounter, scope="singleton")
-    builder.register(TransientService, scope="transient")
+    builder.register(SingletonCounter)
+    builder.register(TransientService, transient=True)
 
     async with builder.build() as container:
         # Create multiple transient instances
@@ -109,9 +109,11 @@ async def test_readme_example():
 
     # Configure the container
     builder = ContainerBuilder()
-    builder.register(DatabaseConnection, scope="singleton")
-    builder.register(UserRepository, scope="scoped")
-    builder.register(UserService, scope="transient")
+    builder.register(DatabaseConnection)
+    builder.register(UserRepository, scoped=True)
+    builder.register(
+        UserService, scoped=True, transient=True
+    )  # scoped transient - requires scope, new instance each time
 
     # Build validates the dependency graph
     async with builder.build() as container:
@@ -141,8 +143,8 @@ async def test_scope_violation_example():
             self.handler = handler
 
     builder = ContainerBuilder()
-    builder.register(RequestHandler, scope="scoped")
-    builder.register(SingletonService, scope="singleton")
+    builder.register(RequestHandler, scoped=True)
+    builder.register(SingletonService)
 
     # Should raise ScopeViolationError
     with pytest.raises(ScopeViolationError) as exc_info:

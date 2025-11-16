@@ -115,8 +115,8 @@ async def test_singleton_can_depend_on_singleton():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SingletonService, scope="singleton")
-    builder.register(SingletonDependsOnSingleton, scope="singleton")
+    builder.register(SingletonService)
+    builder.register(SingletonDependsOnSingleton)
 
     # Should not raise ScopeViolationError
     async with builder.build() as container:
@@ -135,8 +135,8 @@ async def test_scoped_can_depend_on_singleton():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SingletonService, scope="singleton")
-    builder.register(ScopedDependsOnSingleton, scope="scoped")
+    builder.register(SingletonService)
+    builder.register(ScopedDependsOnSingleton, scoped=True)
 
     # Should not raise ScopeViolationError during build
     async with builder.build() as container:
@@ -157,8 +157,8 @@ async def test_scoped_can_depend_on_scoped():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(ScopedService, scope="scoped")
-    builder.register(ScopedDependsOnScoped, scope="scoped")
+    builder.register(ScopedService, scoped=True)
+    builder.register(ScopedDependsOnScoped, scoped=True)
 
     # Should not raise ScopeViolationError during build
     async with builder.build() as container:
@@ -171,20 +171,18 @@ async def test_scoped_can_depend_on_scoped():
 
 
 @pytest.mark.anyio
-async def test_transient_can_depend_on_any_scope():
-    """Test that transient services can depend on any scope.
+async def test_transient_can_depend_on_non_scoped_services():
+    """Test that transient services can depend on non-scoped services (singleton or transient).
 
-    This is valid because transient has the shortest lifetime.
+    Non-scoped services cannot depend on scoped services.
     """
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SingletonService, scope="singleton")
-    builder.register(ScopedService, scope="scoped")
-    builder.register(TransientService, scope="transient")
-    builder.register(TransientDependsOnSingleton, scope="transient")
-    builder.register(TransientDependsOnScoped, scope="transient")
-    builder.register(TransientDependsOnTransient, scope="transient")
+    builder.register(SingletonService)
+    builder.register(TransientService, transient=True)
+    builder.register(TransientDependsOnSingleton, transient=True)
+    builder.register(TransientDependsOnTransient, transient=True)
 
     # Should not raise ScopeViolationError during build
     async with builder.build() as container:
@@ -192,13 +190,29 @@ async def test_transient_can_depend_on_any_scope():
         service1 = await container.get(TransientDependsOnSingleton)
         assert isinstance(service1, TransientDependsOnSingleton)
 
-        service3 = await container.get(TransientDependsOnTransient)
-        assert isinstance(service3, TransientDependsOnTransient)
+        service2 = await container.get(TransientDependsOnTransient)
+        assert isinstance(service2, TransientDependsOnTransient)
 
-        # Transient→scoped must be resolved through a scope
+
+@pytest.mark.anyio
+async def test_scoped_transient_can_depend_on_scoped():
+    """Test that scoped transient services can depend on scoped services.
+
+    Both are scoped, so this is valid.
+    """
+    from hdmi import ContainerBuilder
+
+    builder = ContainerBuilder()
+    builder.register(ScopedService, scoped=True)
+    builder.register(TransientDependsOnScoped, scoped=True, transient=True)  # scoped transient
+
+    # Should not raise ScopeViolationError during build
+    async with builder.build() as container:
+        # Both are scoped, must be resolved through a scope
         async with container.scope() as scoped:
-            service2 = await scoped.get(TransientDependsOnScoped)
-            assert isinstance(service2, TransientDependsOnScoped)
+            service = await scoped.get(TransientDependsOnScoped)
+            assert isinstance(service, TransientDependsOnScoped)
+            assert isinstance(service.dep, ScopedService)
 
 
 # Invalid dependency tests
@@ -215,8 +229,8 @@ async def test_singleton_cannot_depend_on_scoped():
     from hdmi.exceptions import ScopeViolationError
 
     builder = ContainerBuilder()
-    builder.register(ScopedService, scope="scoped")
-    builder.register(SingletonDependsOnScoped, scope="singleton")
+    builder.register(ScopedService, scoped=True)
+    builder.register(SingletonDependsOnScoped)
 
     # Should raise ScopeViolationError during build()
     with pytest.raises(ScopeViolationError) as exc_info:
@@ -247,7 +261,7 @@ async def test_singleton_with_unregistered_optional_transient_is_valid():
 
     builder = ContainerBuilder()
     # Note: TransientService is NOT registered
-    builder.register(SingletonWithOptionalTransient, scope="singleton")
+    builder.register(SingletonWithOptionalTransient)
 
     # Should not raise ScopeViolationError
     async with builder.build() as container:
@@ -267,8 +281,8 @@ async def test_singleton_with_optional_transient_autowire_false_is_valid():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(TransientService, scope="transient", autowire=False)
-    builder.register(SingletonWithOptionalTransient, scope="singleton")
+    builder.register(TransientService, transient=True, autowire=False)
+    builder.register(SingletonWithOptionalTransient)
 
     # Should not raise ScopeViolationError
     async with builder.build() as container:
@@ -288,8 +302,8 @@ async def test_singleton_with_optional_transient_autowire_true_is_valid():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(TransientService, scope="transient", autowire=True)
-    builder.register(SingletonWithOptionalTransient, scope="singleton")
+    builder.register(TransientService, transient=True, autowire=True)
+    builder.register(SingletonWithOptionalTransient)
 
     # Should not raise ScopeViolationError
     async with builder.build() as container:

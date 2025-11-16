@@ -70,10 +70,10 @@ async def test_singleton_shared_dependency_uses_same_task():
     async def track_init(service: SharedService):
         await asyncio.sleep(0.01)  # Small delay to ensure task is trackable
 
-    builder.register(SharedService, scope="singleton", initializer=track_init)
-    builder.register(DependentA, scope="singleton")
-    builder.register(DependentB, scope="singleton")
-    builder.register(Root, scope="singleton")
+    builder.register(SharedService, initializer=track_init)
+    builder.register(DependentA)
+    builder.register(DependentB)
+    builder.register(Root)
 
     async with builder.build() as container:
         root = await container.get(Root)

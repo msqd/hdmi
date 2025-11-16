@@ -55,10 +55,10 @@ async def test_singleton_diamond_dependency_creates_shared_service_once():
     instantiation_counts = {}
 
     builder = ContainerBuilder()
-    builder.register(SharedDependency, scope="singleton")
-    builder.register(ServiceB, scope="singleton")
-    builder.register(ServiceC, scope="singleton")
-    builder.register(ServiceA, scope="singleton")
+    builder.register(SharedDependency)
+    builder.register(ServiceB)
+    builder.register(ServiceC)
+    builder.register(ServiceA)
 
     async with builder.build() as container:
         service_a = await container.get(ServiceA)
@@ -87,10 +87,10 @@ async def test_transient_diamond_dependency_creates_shared_service_multiple_time
     instantiation_counts = {}
 
     builder = ContainerBuilder()
-    builder.register(SharedDependency, scope="transient")
-    builder.register(ServiceB, scope="transient")
-    builder.register(ServiceC, scope="transient")
-    builder.register(ServiceA, scope="transient")
+    builder.register(SharedDependency, transient=True)
+    builder.register(ServiceB, transient=True)
+    builder.register(ServiceC, transient=True)
+    builder.register(ServiceA, transient=True)
 
     async with builder.build() as container:
         service_a = await container.get(ServiceA)
@@ -118,10 +118,10 @@ async def test_mixed_scopes_singleton_shared_across_transients():
     instantiation_counts = {}
 
     builder = ContainerBuilder()
-    builder.register(SharedDependency, scope="singleton")
-    builder.register(ServiceB, scope="transient")
-    builder.register(ServiceC, scope="transient")
-    builder.register(ServiceA, scope="transient")
+    builder.register(SharedDependency)
+    builder.register(ServiceB, transient=True)
+    builder.register(ServiceC, transient=True)
+    builder.register(ServiceA, transient=True)
 
     async with builder.build() as container:
         service_a = await container.get(ServiceA)

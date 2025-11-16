@@ -39,6 +39,12 @@ class E:
         print(f"[{elapsed()}] {type(self).__name__} < {id(self)} > :: __init__()")
 
 
+class F:
+    def __init__(self, e: E):
+        self.e = e
+        print(f"[{elapsed()}] {type(self).__name__} < {id(self)} > :: __init__()")
+
+
 async def slow(x):
     await asyncio.sleep(1)
     return x
@@ -53,8 +59,9 @@ async def main():
     builder.register(A, initializer=slow, finalizer=bye)
     builder.register(B, initializer=slow, finalizer=bye)
     builder.register(C, initializer=slow, finalizer=bye)
-    builder.register(D, initializer=slow, finalizer=bye, scope="transient")
-    builder.register(E, initializer=slow, finalizer=bye, scope="scoped")
+    builder.register(D, initializer=slow, finalizer=bye, transient=True)
+    builder.register(E, initializer=slow, finalizer=bye, scoped=True)
+    builder.register(F, initializer=slow, finalizer=bye, scoped=True, transient=True)  # scoped transient
 
     print("=== Resolving D multiple times from Container ===")
     async with builder.build() as container:
@@ -75,6 +82,14 @@ async def main():
     async with builder.build() as container:
         async with container.scope() as scope:
             tasks = [scope.get(E) for _ in range(5)]
+            instances = await asyncio.gather(*tasks)
+            print(instances)
+
+    print()
+    print("=== Resolving F multiple times from ScopedContainer ===")
+    async with builder.build() as container:
+        async with container.scope() as scope:
+            tasks = [scope.get(F) for _ in range(5)]
             instances = await asyncio.gather(*tasks)
             print(instances)
 

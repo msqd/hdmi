@@ -53,7 +53,7 @@ async def test_container_singleton_returns_same_instance():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="singleton")
+    builder.register(SimpleService)
     async with builder.build() as container:
         service1 = await container.get(SimpleService)
         service2 = await container.get(SimpleService)
@@ -70,7 +70,7 @@ async def test_container_transient_returns_different_instances():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="transient")
+    builder.register(SimpleService, transient=True)
     async with builder.build() as container:
         service1 = await container.get(SimpleService)
         service2 = await container.get(SimpleService)
@@ -89,8 +89,8 @@ async def test_container_resolves_dependencies_from_type_annotations():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="singleton")
-    builder.register(ServiceWithDependency, scope="singleton")
+    builder.register(SimpleService)
+    builder.register(ServiceWithDependency)
     async with builder.build() as container:
         service = await container.get(ServiceWithDependency)
 
@@ -143,7 +143,7 @@ async def test_container_raises_error_for_scoped_service():
     from hdmi.exceptions import ScopeViolationError
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="scoped")
+    builder.register(SimpleService, scoped=True)
     async with builder.build() as container:
         with pytest.raises(ScopeViolationError) as exc_info:
             await container.get(SimpleService)

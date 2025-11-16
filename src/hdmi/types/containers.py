@@ -1,6 +1,6 @@
 """Container protocols - Interface definitions for dependency injection containers."""
 
-from typing import Protocol, Type, TypeVar
+from typing import TypeVar, Protocol, Type
 
 T = TypeVar("T")
 

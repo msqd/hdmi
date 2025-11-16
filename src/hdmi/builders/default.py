@@ -7,19 +7,14 @@ a validated, immutable Container when build() is called.
 import inspect
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Type, get_type_hints
 
-from hdmi._type_utils import extract_type_from_optional
-from hdmi.builders.types import Scope, ServiceDefinition
+from hdmi.utils.typing import extract_type_from_optional
+from hdmi.types.definitions import ServiceDefinition
 from hdmi.exceptions import ScopeViolationError
 
 if TYPE_CHECKING:
     from hdmi.containers import Container
 
-# Scope hierarchy: higher number = longer lifetime
-SCOPE_HIERARCHY = {
-    "singleton": 3,
-    "scoped": 2,
-    "transient": 1,
-}
+# Removed - no longer using scope hierarchy with boolean flags
 
 
 class ContainerBuilder:
@@ -39,7 +34,8 @@ class ContainerBuilder:
         service_type: Type,
         /,
         *,
-        scope: Scope = "singleton",
+        scoped: bool = False,
+        transient: bool = False,
         name: str | None = None,
         factory: Callable[..., Any] | Callable[..., Awaitable[Any]] | None = None,
         autowire: bool = True,
@@ -50,7 +46,8 @@ class ContainerBuilder:
 
         Args:
             service_type: The class to register as a service
-            scope: The lifecycle scope (singleton, scoped, or transient)
+            scoped: False (default) = available from Container, True = requires ScopedContainer
+            transient: False (default) = cached, True = new instance per request
             name: Optional name for the service
             factory: Optional factory function to create the service (sync or async)
             autowire: Whether to auto-inject this service into optional dependencies (defaults to True)
@@ -59,7 +56,8 @@ class ContainerBuilder:
         """
         definition = ServiceDefinition(
             service_type,
-            scope=scope,
+            scoped=scoped,
+            transient=transient,
             name=name,
             factory=factory,
             autowire=autowire,
@@ -94,10 +92,16 @@ class ContainerBuilder:
         return Container(self._definitions)
 
     def _validate_scopes(self) -> None:
-        """Validate that scope hierarchy is respected.
+        """Validate that scope rules are respected.
+
+        Validation rule:
+        - Non-scoped services (scoped=False) cannot depend on scoped services (scoped=True)
+
+        This is because non-scoped services are available from Container, but scoped
+        services only exist within a ScopedContainer context.
 
         Raises:
-            ScopeViolationError: If a service depends on a service with shorter lifetime
+            ScopeViolationError: If a non-scoped service depends on a scoped service
         """
         for service_type, definition in self._definitions.items():
             # Get dependencies from type annotations
@@ -111,17 +115,19 @@ class ContainerBuilder:
 
                 dep_definition = self._definitions[dep_type]
 
-                # Validate scope hierarchy
-                # The only unsafe dependency is: singleton -> scoped
-                # (singleton needs a scoped instance that only exists within a scope)
-                #
-                # Transient dependencies are safe because they're created once during
-                # the dependent's construction and live for the dependent's lifetime.
-                if definition.scope == "singleton" and dep_definition.scope == "scoped":
+                # Validate scope compatibility
+                # The only unsafe dependency is: non-scoped -> scoped
+                # (non-scoped service needs a scoped instance that only exists within a scope)
+                if not definition.scoped and dep_definition.scoped:
+                    service_type_str = (
+                        f"{service_type.__name__} (scoped={definition.scoped}, transient={definition.transient})"
+                    )
+                    dep_type_str = (
+                        f"{dep_type.__name__} (scoped={dep_definition.scoped}, transient={dep_definition.transient})"
+                    )
                     raise ScopeViolationError(
-                        f"{service_type.__name__} (singleton) cannot depend on "
-                        f"{dep_type.__name__} (scoped). "
-                        f"Singleton services cannot depend on scoped services because "
+                        f"{service_type_str} cannot depend on {dep_type_str}. "
+                        f"Non-scoped services cannot depend on scoped services because "
                         f"scoped services only exist within a scope context."
                     )
 

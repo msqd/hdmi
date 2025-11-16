@@ -2,7 +2,7 @@
 
 import pytest
 
-from hdmi.builders.types import ServiceDefinition
+from hdmi.types.definitions import ServiceDefinition
 
 
 class SimpleService:
@@ -12,11 +12,12 @@ class SimpleService:
 
 
 def test_service_definition_basic_creation():
-    """ServiceDefinition can be created with service_type and default scope."""
+    """ServiceDefinition can be created with service_type and default flags."""
     definition = ServiceDefinition(SimpleService)
 
     assert definition.service_type is SimpleService
-    assert definition.scope == "singleton"
+    assert definition.scoped is False  # singleton (default)
+    assert definition.transient is False  # singleton (default)
 
 
 def test_service_type_must_be_positional():
@@ -25,17 +26,28 @@ def test_service_type_must_be_positional():
         ServiceDefinition(service_type=SimpleService)  # type: ignore
 
 
-def test_scope_can_be_passed_as_keyword():
-    """scope parameter can be passed as a keyword argument."""
-    definition = ServiceDefinition(SimpleService, scope="scoped")
+def test_scoped_can_be_passed_as_keyword():
+    """scoped parameter can be passed as a keyword argument."""
+    definition = ServiceDefinition(SimpleService, scoped=True)
 
-    assert definition.scope == "scoped"
+    assert definition.scoped is True
+    assert definition.transient is False  # default
 
 
-def test_scope_cannot_be_positional():
-    """scope parameter cannot be passed as positional argument."""
-    with pytest.raises(TypeError):
-        ServiceDefinition(SimpleService, "scoped")  # type: ignore
+def test_transient_can_be_passed_as_keyword():
+    """transient parameter can be passed as a keyword argument."""
+    definition = ServiceDefinition(SimpleService, transient=True)
+
+    assert definition.scoped is False  # default
+    assert definition.transient is True
+
+
+def test_both_flags_can_be_set():
+    """Both scoped and transient flags can be set (scoped transient)."""
+    definition = ServiceDefinition(SimpleService, scoped=True, transient=True)
+
+    assert definition.scoped is True
+    assert definition.transient is True
 
 
 def test_name_defaults_to_none():
@@ -55,7 +67,7 @@ def test_name_can_be_provided():
 def test_name_must_be_keyword():
     """name parameter must be passed as keyword, not positional."""
     with pytest.raises(TypeError):
-        ServiceDefinition(SimpleService, "singleton", "my_service")  # type: ignore
+        ServiceDefinition(SimpleService, False, False, "my_service")  # type: ignore
 
 
 def test_factory_defaults_to_none():
@@ -83,7 +95,7 @@ def test_factory_must_be_keyword():
         return SimpleService()
 
     with pytest.raises(TypeError):
-        ServiceDefinition(SimpleService, "singleton", None, create_service)  # type: ignore
+        ServiceDefinition(SimpleService, False, False, None, create_service)  # type: ignore
 
 
 def test_factory_must_be_callable():
@@ -109,7 +121,7 @@ def test_autowire_can_be_provided():
 def test_autowire_must_be_keyword():
     """autowire parameter must be passed as keyword, not positional."""
     with pytest.raises(TypeError):
-        ServiceDefinition(SimpleService, "singleton", None, None, True)  # type: ignore
+        ServiceDefinition(SimpleService, False, False, None, None, True)  # type: ignore
 
 
 def test_async_factory_can_be_provided():

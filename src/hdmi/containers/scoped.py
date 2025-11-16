@@ -82,8 +82,17 @@ class ScopedContainer(Container):
                 f"Use ContainerBuilder.register({service_type.__name__}) to register it."
             ) from None
 
-        # Handle scoped services with task sharing
-        if definition.scope == "scoped":
+        # Handle based on scope flags
+        if not definition.scoped:
+            # Non-scoped services (singleton or transient) - delegate to parent
+            return await self._parent.get(service_type)  # type: ignore
+
+        # Scoped services (scoped=True)
+        if definition.transient:
+            # Scoped Transient (scoped=True, transient=True): new instance every time, no task sharing
+            return await self._create_instance(service_type)  # type: ignore
+        else:
+            # Scoped (scoped=True, transient=False): cached with task sharing
             # Check if already cached
             if service_type in self._scoped_instances:
                 return self._scoped_instances[service_type]  # type: ignore
@@ -106,10 +115,3 @@ class ScopedContainer(Container):
             finally:
                 # Remove from pending tasks (cleanup)
                 self._pending_tasks.pop(service_type, None)
-
-        # For singleton, delegate to parent (parent handles task sharing)
-        if definition.scope == "singleton":
-            return await self._parent.get(service_type)  # type: ignore
-
-        # For transient, create locally (no task sharing, dependencies resolved through this scope)
-        return await self._create_instance(service_type)  # type: ignore

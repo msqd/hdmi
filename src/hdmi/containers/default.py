@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING, Type, TypeVar, get_type_hints
 
 from anyio import to_thread
 
-from hdmi._type_utils import extract_type_from_optional
+from hdmi.utils.typing import extract_type_from_optional
 
 if TYPE_CHECKING:
-    from hdmi.builders.types import ServiceDefinition
+    from hdmi.types.definitions import ServiceDefinition
     from hdmi.containers.scoped import ScopedContainer
 
 T = TypeVar("T")
@@ -99,14 +99,18 @@ class Container:
             ) from None
 
         # Scoped services cannot be resolved directly from Container
-        if definition.scope == "scoped":
+        if definition.scoped:
             raise ScopeViolationError(
-                f"{service_type.__name__} is a scoped service and cannot be resolved "
+                f"{service_type.__name__} is a scoped service (scoped=True) and cannot be resolved "
                 f"directly from Container. Use Container.scope() to create a scoped context."
             )
 
-        # Handle singleton scope with task sharing
-        if definition.scope == "singleton":
+        # Handle non-scoped services
+        if definition.transient:
+            # Transient (scoped=False, transient=True): new instance every time, no task sharing
+            return await self._create_instance(service_type)  # type: ignore
+        else:
+            # Singleton (scoped=False, transient=False): cached with task sharing
             # Check if already cached
             if service_type in self._singletons:
                 return self._singletons[service_type]  # type: ignore
@@ -129,9 +133,6 @@ class Container:
             finally:
                 # Remove from pending tasks (cleanup)
                 self._pending_tasks.pop(service_type, None)
-
-        # Handle transient scope (new instance every time, no task sharing)
-        return await self._create_instance(service_type)  # type: ignore
 
     async def _create_instance(self, service_type: Type[T]) -> T:
         """Create an instance of a service, resolving dependencies and managing lifecycle.

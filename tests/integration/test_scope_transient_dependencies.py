@@ -39,8 +39,8 @@ async def test_singleton_can_depend_on_transient():
     and lives for the singleton's lifetime.
     """
     builder = ContainerBuilder()
-    builder.register(TransientDependency, scope="transient")
-    builder.register(SingletonWithTransientDep, scope="singleton")
+    builder.register(TransientDependency, transient=True)
+    builder.register(SingletonWithTransientDep)
 
     # Should build without validation errors
     async with builder.build() as container:
@@ -63,8 +63,8 @@ async def test_scoped_can_depend_on_transient():
     for that scoped instance's lifetime.
     """
     builder = ContainerBuilder()
-    builder.register(TransientDependency, scope="transient")
-    builder.register(ScopedWithTransientDep, scope="scoped")
+    builder.register(TransientDependency, transient=True)
+    builder.register(ScopedWithTransientDep, scoped=True)
 
     # Should build without validation errors
     async with builder.build() as container:
@@ -94,7 +94,7 @@ async def test_transient_dependency_is_not_shared_across_direct_requests():
     their transient behavior when requested directly.
     """
     builder = ContainerBuilder()
-    builder.register(TransientDependency, scope="transient")
+    builder.register(TransientDependency, transient=True)
 
     async with builder.build() as container:
         # Each direct request creates a new instance
@@ -125,11 +125,14 @@ async def test_singleton_still_cannot_depend_on_scoped():
             self.dep = dep
 
     builder = ContainerBuilder()
-    builder.register(ScopedDependency, scope="scoped")
-    builder.register(SingletonWithScopedDep, scope="singleton")
+    builder.register(ScopedDependency, scoped=True)
+    builder.register(SingletonWithScopedDep)
 
     # Should raise validation error
     with pytest.raises(ScopeViolationError) as exc_info:
         builder.build()
 
-    assert "SingletonWithScopedDep (singleton) cannot depend on ScopedDependency (scoped)" in str(exc_info.value)
+    error_msg = str(exc_info.value)
+    assert "SingletonWithScopedDep" in error_msg
+    assert "ScopedDependency" in error_msg
+    assert "scoped" in error_msg.lower()

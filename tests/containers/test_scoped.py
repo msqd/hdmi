@@ -38,7 +38,7 @@ async def test_scoped_container_resolves_and_caches_scoped_services():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="scoped")
+    builder.register(SimpleService, scoped=True)
     async with builder.build() as container:
         async with container.scope() as scoped:
             service1 = await scoped.get(SimpleService)
@@ -58,7 +58,7 @@ async def test_scoped_container_delegates_singleton_to_parent():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="singleton")
+    builder.register(SimpleService)
     async with builder.build() as container:
         # Get from parent container first
         singleton = await container.get(SimpleService)
@@ -78,7 +78,7 @@ async def test_scoped_container_delegates_transient_to_parent():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="transient")
+    builder.register(SimpleService, transient=True)
     async with builder.build() as container:
         async with container.scope() as scoped:
             transient1 = await scoped.get(SimpleService)
@@ -107,8 +107,8 @@ async def test_scoped_dependencies_share_same_cache():
             self.a = a
 
     builder = ContainerBuilder()
-    builder.register(ScopedA, scope="scoped")
-    builder.register(ScopedB, scope="scoped")
+    builder.register(ScopedA, scoped=True)
+    builder.register(ScopedB, scoped=True)
     async with builder.build() as container:
         async with container.scope() as scoped:
             # Get ScopedA directly
@@ -130,7 +130,7 @@ async def test_new_scope_creates_new_instances():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="scoped")
+    builder.register(SimpleService, scoped=True)
     async with builder.build() as container:
         # First scope
         async with container.scope() as scope1:

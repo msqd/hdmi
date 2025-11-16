@@ -88,10 +88,10 @@ async def test_scoped_shared_dependency_uses_same_task():
     async def track_scoped_init(service: ScopedSharedService):
         await asyncio.sleep(0.01)
 
-    builder.register(ScopedSharedService, scope="scoped", initializer=track_scoped_init)
-    builder.register(ScopedDependentA, scope="scoped")
-    builder.register(ScopedDependentB, scope="scoped")
-    builder.register(ScopedRoot, scope="scoped")
+    builder.register(ScopedSharedService, scoped=True, initializer=track_scoped_init)
+    builder.register(ScopedDependentA, scoped=True)
+    builder.register(ScopedDependentB, scoped=True)
+    builder.register(ScopedRoot, scoped=True)
 
     async with builder.build() as container:
         async with container.scope() as scoped:
@@ -123,10 +123,10 @@ async def test_scoped_services_delegate_singleton_task_to_root():
     async def track_singleton_init(service: SingletonSharedService):
         await asyncio.sleep(0.01)
 
-    builder.register(SingletonSharedService, scope="singleton", initializer=track_singleton_init)
-    builder.register(ScopedDependentC, scope="scoped")
-    builder.register(ScopedDependentD, scope="scoped")
-    builder.register(ScopedRootWithSingleton, scope="scoped")
+    builder.register(SingletonSharedService, initializer=track_singleton_init)
+    builder.register(ScopedDependentC, scoped=True)
+    builder.register(ScopedDependentD, scoped=True)
+    builder.register(ScopedRootWithSingleton, scoped=True)
 
     async with builder.build() as container:
         async with container.scope() as scoped:
@@ -148,8 +148,8 @@ async def test_different_scopes_create_different_scoped_instances():
     task_ids = {}
 
     builder = ContainerBuilder()
-    builder.register(ScopedSharedService, scope="scoped")
-    builder.register(ScopedDependentA, scope="scoped")
+    builder.register(ScopedSharedService, scoped=True)
+    builder.register(ScopedDependentA, scoped=True)
 
     async with builder.build() as container:
         async with container.scope() as scope1:

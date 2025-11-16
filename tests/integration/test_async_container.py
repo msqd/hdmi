@@ -43,7 +43,7 @@ async def test_singleton_created_once_across_multiple_gets():
             Counter.instances += 1
 
     builder = ContainerBuilder()
-    builder.register(Counter, scope="singleton")
+    builder.register(Counter)
 
     async with builder.build() as container:
         service1 = await container.get(Counter)
@@ -65,7 +65,7 @@ async def test_transient_created_each_time():
             self.id = Counter.instances
 
     builder = ContainerBuilder()
-    builder.register(Counter, scope="transient")
+    builder.register(Counter, transient=True)
 
     async with builder.build() as container:
         service1 = await container.get(Counter)

@@ -59,8 +59,8 @@ async def test_container_builder_register_with_scope():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="singleton")
-    builder.register(ServiceWithDependency, scope="transient")
+    builder.register(SimpleService)
+    builder.register(ServiceWithDependency, transient=True)
 
     # Should not raise any exception
     assert True
@@ -72,14 +72,15 @@ async def test_container_builder_register_with_custom_scope():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="scoped")
+    builder.register(SimpleService, scoped=True)
 
     # The builder should have stored the definition correctly
     # Access internal state to verify (this is a test, so it's acceptable)
     assert SimpleService in builder._definitions
     stored_def = builder._definitions[SimpleService]
     assert stored_def.service_type is SimpleService
-    assert stored_def.scope == "scoped"
+    assert stored_def.scoped is True
+    assert stored_def.transient is False
 
 
 @pytest.mark.anyio
@@ -88,7 +89,7 @@ async def test_container_builder_register_with_name():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="singleton", name="my_service")
+    builder.register(SimpleService, name="my_service")
 
     # Verify the name was preserved
     assert SimpleService in builder._definitions
@@ -105,7 +106,7 @@ async def test_container_builder_register_with_factory():
         return SimpleService()
 
     builder = ContainerBuilder()
-    builder.register(SimpleService, scope="transient", factory=create_simple_service)
+    builder.register(SimpleService, transient=True, factory=create_simple_service)
 
     # Verify the factory was preserved
     assert SimpleService in builder._definitions
@@ -152,7 +153,7 @@ async def test_container_builder_register_with_all_parameters():
     builder = ContainerBuilder()
     builder.register(
         SimpleService,
-        scope="scoped",
+        scoped=True,
         name="my_service",
         factory=create_simple_service,
         autowire=False,
@@ -161,7 +162,8 @@ async def test_container_builder_register_with_all_parameters():
     # Verify all parameters were set correctly
     assert SimpleService in builder._definitions
     stored_def = builder._definitions[SimpleService]
-    assert stored_def.scope == "scoped"
+    assert stored_def.scoped is True
+    assert stored_def.transient is False
     assert stored_def.name == "my_service"
     assert stored_def.factory is create_simple_service
     assert stored_def.autowire is False

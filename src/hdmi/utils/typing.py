@@ -1,12 +1,7 @@
-"""Type utilities for dependency injection.
-
-Internal utilities for working with type hints.
-"""
-
-from typing import Type, get_args, get_origin
+from typing import Any, Type, get_origin, get_args
 
 
-def extract_type_from_optional(type_hint: Type) -> Type | None:
+def extract_type_from_optional(type_hint: Any) -> Type | None:
     """Extract the actual type from an Optional/Union type hint.
 
     Args:
