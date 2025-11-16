@@ -43,6 +43,7 @@ class Container:
         """
         self._definitions = definitions
         self._singletons: dict[Type, object] = {}
+        self._pending_tasks: dict[Type, asyncio.Task] = {}
         self._exit_stack: AsyncExitStack | None = None
 
     async def __aenter__(self) -> "Container":
@@ -104,13 +105,32 @@ class Container:
                 f"directly from Container. Use Container.scope() to create a scoped context."
             )
 
-        # Handle singleton scope
+        # Handle singleton scope with task sharing
         if definition.scope == "singleton":
-            if service_type not in self._singletons:
-                self._singletons[service_type] = await self._create_instance(service_type)
-            return self._singletons[service_type]  # type: ignore
+            # Check if already cached
+            if service_type in self._singletons:
+                return self._singletons[service_type]  # type: ignore
 
-        # Handle transient scope (new instance every time)
+            # Check if task is already pending (task sharing)
+            if service_type in self._pending_tasks:
+                # Reuse existing task
+                return await self._pending_tasks[service_type]  # type: ignore
+
+            # Create new task and store it
+            task = asyncio.create_task(self._create_instance(service_type))
+            self._pending_tasks[service_type] = task
+
+            try:
+                # Await the task
+                instance = await task
+                # Cache the result
+                self._singletons[service_type] = instance
+                return instance  # type: ignore
+            finally:
+                # Remove from pending tasks (cleanup)
+                self._pending_tasks.pop(service_type, None)
+
+        # Handle transient scope (new instance every time, no task sharing)
         return await self._create_instance(service_type)  # type: ignore
 
     async def _create_instance(self, service_type: Type[T]) -> T:

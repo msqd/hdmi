@@ -4,6 +4,7 @@ ScopedContainer follows the decorator pattern, extending Container to provide
 scoped service resolution within a specific scope context.
 """
 
+import asyncio
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Type, TypeVar
 
@@ -35,6 +36,7 @@ class ScopedContainer(Container):
         self._parent = parent
         self._definitions = parent._definitions
         self._scoped_instances: dict[Type, object] = {}
+        self._pending_tasks: dict[Type, asyncio.Task] = {}  # For scoped services only
         self._exit_stack: AsyncExitStack | None = None
         # Note: we don't initialize _singletons as we delegate to parent
 
@@ -80,15 +82,34 @@ class ScopedContainer(Container):
                 f"Use ContainerBuilder.register({service_type.__name__}) to register it."
             ) from None
 
-        # If scoped, create and cache in this container
+        # Handle scoped services with task sharing
         if definition.scope == "scoped":
-            if service_type not in self._scoped_instances:
-                self._scoped_instances[service_type] = await self._create_instance(service_type)
-            return self._scoped_instances[service_type]  # type: ignore
+            # Check if already cached
+            if service_type in self._scoped_instances:
+                return self._scoped_instances[service_type]  # type: ignore
 
-        # For singleton, delegate to parent (singletons cached there)
+            # Check if task is already pending (task sharing)
+            if service_type in self._pending_tasks:
+                # Reuse existing task
+                return await self._pending_tasks[service_type]  # type: ignore
+
+            # Create new task and store it
+            task = asyncio.create_task(self._create_instance(service_type))
+            self._pending_tasks[service_type] = task
+
+            try:
+                # Await the task
+                instance = await task
+                # Cache the result
+                self._scoped_instances[service_type] = instance
+                return instance  # type: ignore
+            finally:
+                # Remove from pending tasks (cleanup)
+                self._pending_tasks.pop(service_type, None)
+
+        # For singleton, delegate to parent (parent handles task sharing)
         if definition.scope == "singleton":
             return await self._parent.get(service_type)  # type: ignore
 
-        # For transient, create locally (dependencies resolved through this scope)
+        # For transient, create locally (no task sharing, dependencies resolved through this scope)
         return await self._create_instance(service_type)  # type: ignore
