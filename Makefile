@@ -1,4 +1,4 @@
-.PHONY: test install check docs docs-watch clean help
+.PHONY: test install check docs docs-watch clean wheel help
 
 UV ?= $(shell command -v uv 2>/dev/null || echo "uv")
 RUN ?= $(UV) run
@@ -40,3 +40,11 @@ clean:  ## Clean up temporary files
 	rm -rf *.egg-info
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
+
+wheel: test clean  ## Build and check wheel for PyPI distribution
+	$(UV) build
+	$(RUN) twine check dist/*
+	@echo ""
+	@echo "Wheel built and validated successfully!"
+	@echo "Files ready for upload:"
+	@ls -lh dist/

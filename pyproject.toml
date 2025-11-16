@@ -20,6 +20,7 @@ dev = [
     "sphinx-autobuild>=2024.0.0",
     "furo>=2024.0.0",
     "sphinxcontrib-mermaid>=1.0.0",
+    "twine>=6.0.0",
 ]
 
 [build-system]
@@ -44,6 +45,11 @@ include = ["src", "tests"]
 
 # Report missing type stubs for third-party libraries as information, not errors
 reportMissingTypeStubs = "information"
+
+[dependency-groups]
+dev = [
+    "twine>=6.2.0",
+]
 
 # Note: Planning to migrate to Astral's 'ty' when it reaches production readiness (late 2025)
 # https://github.com/astral-sh/ty

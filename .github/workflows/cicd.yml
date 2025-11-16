@@ -1,0 +1,255 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - '*.*.*'      # Semantic version tags (e.g., 0.1.0)
+      - '*.*.*-*'    # Pre-release tags (e.g., 0.1.0-rc1, 0.1.0-beta.1)
+  pull_request:
+
+permissions:
+  contents: write   # Required for creating GitHub releases
+  id-token: write   # Required for trusted publishing to PyPI
+
+jobs:
+  test:
+    name: Test (Py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.13']
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run linting
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run type checking
+        run: uv run basedpyright
+
+      - name: Run tests
+        run: uv run pytest --cov=hdmi --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  build-python-package:
+    name: Build Python Package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            echo "Building release version: $VERSION"
+          else
+            VERSION=$(git describe --tags --always --dirty)
+            echo "Building development version: $VERSION"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Validate version matches tag
+        if: github.ref_type == 'tag'
+        run: |
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+          PYPROJECT_VERSION=$(grep -E '^version = ' pyproject.toml | sed -E 's/version = "(.+)"/\1/')
+          echo "Tag version: $TAG_VERSION"
+          echo "pyproject.toml version: $PYPROJECT_VERSION"
+          if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
+            echo "❌ Error: Tag version ($TAG_VERSION) does not match pyproject.toml version ($PYPROJECT_VERSION)"
+            exit 1
+          fi
+          echo "✅ Version validation passed"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Build package
+        run: uv build
+
+      - name: Install dependencies for validation
+        run: uv sync
+
+      - name: Check package
+        run: uv run twine check dist/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          retention-days: 7
+
+  all-checks-passed:
+    name: All Checks Passed
+    needs:
+      - build-python-package
+      - test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: All checks passed
+        run: echo "✅ All tests and package builds completed successfully"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          allow-prereleases: true
+
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Test wheel installation
+        run: |
+          WHEEL=$(ls dist/*.whl)
+          echo "Testing wheel: $WHEEL"
+          uv pip install --system "$WHEEL"
+          python -c "import hdmi; print(f'hdmi installation successful')"
+          python -c "import sys; print(f'Python: {sys.version}')"
+
+  publish-to-testpypi:
+    name: Publish to TestPyPI
+    needs: all-checks-passed
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/hdmi
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-to-pypi:
+    name: Publish to PyPI
+    needs: publish-to-testpypi
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/hdmi
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  create-github-release:
+    name: Create GitHub Release
+    needs: publish-to-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create release notes
+        run: |
+          cat > release-notes.md <<EOF
+          # Release ${{ steps.version.outputs.version }}
+
+          This release was automatically created from tag ${{ github.ref_name }}.
+
+          ## Installation
+
+          \`\`\`bash
+          pip install hdmi==${{ steps.version.outputs.version }}
+          \`\`\`
+
+          See the [documentation](https://github.com/${{ github.repository }}) for more information.
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: dist/*
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
