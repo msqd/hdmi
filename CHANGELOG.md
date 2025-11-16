@@ -25,3 +25,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Reorganized container implementation into `hdmi.containers` package for better modularity
+- `ServiceDefinition` is now exported from main `hdmi` package for direct usage
+- `ContainerBuilder.register()` now raises `ValueError` when both `ServiceDefinition` and `scope` parameter are provided

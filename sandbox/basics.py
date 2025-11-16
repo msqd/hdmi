@@ -19,23 +19,33 @@ class UserService:
 
 
 def main():
+    print("=== Basic Registration (shorthand syntax) ===")
     builder = ContainerBuilder()
 
+    # Shorthand registration with Type + scope
     builder.register(DatabaseService, scope="singleton")
     builder.register(UserRepository, scope="scoped")
     builder.register(UserService, scope="transient")
 
     container = builder.build()
 
-    user_service = container.get(UserService)
-    assert isinstance(user_service, UserService)
-    assert isinstance(user_service.user_repo, UserRepository)
-    assert isinstance(user_service.user_repo.db_service, DatabaseService)
+    unscoped_database_service = container.get(DatabaseService)
+    assert isinstance(unscoped_database_service, DatabaseService)
 
-    user_service2 = container.get(UserService)
-    assert user_service is not user_service2
-    assert user_service.user_repo is user_service2.user_repo
-    assert user_service.user_repo.db_service is user_service2.user_repo.db_service
+    with container.scope() as scope:
+        user_service = scope.get(UserService)
+        assert isinstance(user_service, UserService)
+        assert isinstance(user_service.user_repo, UserRepository)
+        assert isinstance(user_service.user_repo.db_service, DatabaseService)
+
+        user_service2 = scope.get(UserService)
+        assert user_service is not user_service2  # transient - new instance
+        assert user_service.user_repo is user_service2.user_repo  # scoped - same
+        assert user_service.user_repo.db_service is user_service2.user_repo.db_service  # singleton - same
+
+        assert user_service.user_repo.db_service is unscoped_database_service
+
+    print("\n✅ All examples completed successfully!")
 
 
 if __name__ == "__main__":

@@ -15,14 +15,16 @@ from hdmi.exceptions import (
     ScopeViolationError,
     UnresolvableDependencyError,
 )
+from hdmi.definitions import ServiceDefinition
 
 __all__ = [
-    "ContainerBuilder",
-    "Container",
-    "IContainer",
-    "ScopedContainer",
-    "HDMIError",
-    "ScopeViolationError",
     "CircularDependencyError",
+    "Container",
+    "ContainerBuilder",
+    "HDMIError",
+    "IContainer",
+    "ScopeViolationError",
+    "ScopedContainer",
+    "ServiceDefinition",
     "UnresolvableDependencyError",
 ]

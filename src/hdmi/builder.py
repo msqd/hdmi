@@ -52,7 +52,7 @@ class ContainerBuilder:
         self,
         service_type: Type | ServiceDefinition,
         *,
-        scope: Scope = "singleton",
+        scope: Scope | None = None,
     ) -> None:
         """Register a service type with the container.
 
@@ -61,12 +61,14 @@ class ContainerBuilder:
             scope: The lifecycle scope (singleton, scoped, or transient) - ignored if service_type is a ServiceDefinition
         """
         if isinstance(service_type, ServiceDefinition):
+            if scope is not None:
+                raise ValueError("Cannot specify scope when registering a ServiceDefinition.")
             # Use the ServiceDefinition directly
             definition = service_type
             self._definitions[definition.service_type] = definition
         else:
             # Create a new ServiceDefinition from the type and scope
-            definition = ServiceDefinition(service_type, scope=scope)
+            definition = ServiceDefinition(service_type, scope="singleton" if scope is None else scope)
             self._definitions[service_type] = definition
 
     def build(self) -> "Container":
