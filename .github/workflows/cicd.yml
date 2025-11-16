@@ -40,7 +40,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync --frozen --all-extras
 
       - name: Run linting
         run: |
@@ -110,7 +110,7 @@ jobs:
         run: uv build
 
       - name: Install dependencies for validation
-        run: uv sync
+        run: uv sync --all-extras
 
       - name: Check package
         run: uv run twine check dist/*
