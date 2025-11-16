@@ -8,6 +8,8 @@ import inspect
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Type, TypeVar, get_type_hints
 
+from anyio import to_thread
+
 from hdmi._type_utils import extract_type_from_optional
 
 if TYPE_CHECKING:
@@ -111,20 +113,22 @@ class Container:
         return await self._create_instance(service_type)  # type: ignore
 
     async def _create_instance(self, service_type: Type[T]) -> T:
-        """Create an instance of a service, resolving dependencies.
+        """Create an instance of a service, resolving dependencies and managing lifecycle.
 
         Args:
             service_type: The service type to instantiate
 
         Returns:
-            An instance with all dependencies resolved
+            An instance with all dependencies resolved and lifecycle hooks executed
         """
         # Get the __init__ signature
         try:
             sig = inspect.signature(service_type.__init__)
         except ValueError:
             # If we can't get signature, try without parameters
-            return service_type()  # type: ignore
+            instance = service_type()  # type: ignore
+            await self._manage_lifecycle(service_type, instance)
+            return instance
 
         # Get type hints for the __init__ method
         try:
@@ -167,4 +171,47 @@ class Container:
                 # Required dependency - always inject (even if autowire=False)
                 kwargs[param_name] = await self.get(dependency_type)
 
-        return service_type(**kwargs)  # type: ignore
+        instance = service_type(**kwargs)  # type: ignore
+
+        # Manage lifecycle (initializer, context manager, finalizer)
+        await self._manage_lifecycle(service_type, instance)
+
+        return instance
+
+    async def _manage_lifecycle(self, service_type: Type[T], instance: T) -> None:
+        """Manage the lifecycle of a service instance.
+
+        This includes:
+        - Calling initializer (if provided)
+        - Registering finalizer with exit stack (if provided)
+
+        Note: Services that are context managers are NOT automatically entered.
+        The user is responsible for managing their context themselves.
+
+        Args:
+            service_type: The service type
+            instance: The service instance
+        """
+        definition = self._definitions[service_type]
+
+        # Call initializer if provided
+        if definition.initializer is not None:
+            if inspect.iscoroutinefunction(definition.initializer):
+                await definition.initializer(instance)
+            else:
+                # Run sync initializer in thread pool
+                await to_thread.run_sync(definition.initializer, instance)
+
+        # Register finalizer with exit stack if provided
+        if definition.finalizer is not None and self._exit_stack is not None:
+            if inspect.iscoroutinefunction(definition.finalizer):
+                # Async finalizer
+                self._exit_stack.push_async_callback(definition.finalizer, instance)
+            else:
+                # Sync finalizer - wrap in async callback that runs in thread pool
+                finalizer = definition.finalizer  # Capture to satisfy type checker
+
+                async def _run_sync_finalizer():
+                    await to_thread.run_sync(finalizer, instance)
+
+                self._exit_stack.push_async_callback(_run_sync_finalizer)
