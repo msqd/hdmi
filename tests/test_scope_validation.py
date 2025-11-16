@@ -259,3 +259,74 @@ def test_scoped_cannot_depend_on_transient():
 
     assert "scoped" in str(exc_info.value).lower()
     assert "transient" in str(exc_info.value).lower()
+
+
+# Optional dependency scope validation tests
+
+
+class SingletonWithOptionalTransient:
+    """Singleton with optional transient dependency."""
+
+    def __init__(self, *, dep: TransientService | None = None):
+        self.dep = dep
+
+
+def test_singleton_with_unregistered_optional_transient_is_valid():
+    """Singleton with optional transient dependency is valid when transient is NOT registered.
+
+    Since the transient dependency is not registered, it won't be injected,
+    so no scope violation should occur.
+    """
+    from hdmi import ContainerBuilder
+
+    builder = ContainerBuilder()
+    # Note: TransientService is NOT registered
+    builder.register(SingletonWithOptionalTransient, scope="singleton")
+
+    # Should not raise ScopeViolationError
+    container = builder.build()
+    service = container.get(SingletonWithOptionalTransient)
+
+    assert isinstance(service, SingletonWithOptionalTransient)
+    assert service.dep is None  # Should use the default
+
+
+def test_singleton_with_optional_transient_autowire_false_is_valid():
+    """Singleton with optional transient dependency is valid when autowire=False.
+
+    Since autowire=False, the transient dependency won't be injected into the
+    optional parameter, so no scope violation should occur.
+    """
+    from hdmi import ContainerBuilder
+
+    builder = ContainerBuilder()
+    builder.register(TransientService, scope="transient", autowire=False)
+    builder.register(SingletonWithOptionalTransient, scope="singleton")
+
+    # Should not raise ScopeViolationError
+    container = builder.build()
+    service = container.get(SingletonWithOptionalTransient)
+
+    assert isinstance(service, SingletonWithOptionalTransient)
+    assert service.dep is None  # Should use the default (not injected)
+
+
+def test_singleton_with_optional_transient_autowire_true_is_invalid():
+    """Singleton with optional transient dependency is INVALID when autowire=True.
+
+    Since autowire=True and the dependency is registered, it WILL be injected,
+    so the scope violation should be caught.
+    """
+    from hdmi import ContainerBuilder
+    from hdmi.exceptions import ScopeViolationError
+
+    builder = ContainerBuilder()
+    builder.register(TransientService, scope="transient", autowire=True)
+    builder.register(SingletonWithOptionalTransient, scope="singleton")
+
+    # Should raise ScopeViolationError during build()
+    with pytest.raises(ScopeViolationError) as exc_info:
+        builder.build()
+
+    assert "singleton" in str(exc_info.value).lower()
+    assert "transient" in str(exc_info.value).lower()

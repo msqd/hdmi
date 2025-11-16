@@ -5,7 +5,9 @@ service instances lazily (just-in-time) when requested.
 """
 
 import inspect
-from typing import TYPE_CHECKING, Type, TypeVar, get_args, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Type, TypeVar, get_type_hints
+
+from hdmi._type_utils import extract_type_from_optional
 
 if TYPE_CHECKING:
     from hdmi.definitions import ServiceDefinition
@@ -86,34 +88,6 @@ class Container:
         # Handle transient scope (new instance every time)
         return self._create_instance(service_type)  # type: ignore
 
-    def _extract_type_from_optional(self, type_hint: Type) -> Type | None:
-        """Extract the actual type from an Optional/Union type hint.
-
-        Args:
-            type_hint: The type hint to analyze (e.g., Config | None, Optional[Config])
-
-        Returns:
-            The extracted type if it's an Optional/Union, or the original type if not.
-            Returns None if the union contains only None or multiple non-None types.
-        """
-        # Check if it's a Union type (including Optional which is Union[T, None])
-        origin = get_origin(type_hint)
-        if origin is not None:
-            # It's a generic type, check if it's a Union
-            args = get_args(type_hint)
-            if args:
-                # Filter out NoneType from the union
-                non_none_types = [arg for arg in args if arg is not type(None)]
-
-                # If there's exactly one non-None type, return it
-                if len(non_none_types) == 1:
-                    return non_none_types[0]
-                # Multiple non-None types or all None - can't determine single type
-                return None
-
-        # Not a union type, return as-is
-        return type_hint
-
     def _create_instance(self, service_type: Type[T]) -> T:
         """Create an instance of a service, resolving dependencies.
 
@@ -150,7 +124,7 @@ class Container:
             has_default = param.default is not inspect.Parameter.empty
 
             # Extract actual type from Optional/Union types (e.g., Config | None -> Config)
-            dependency_type = self._extract_type_from_optional(type_hint)
+            dependency_type = extract_type_from_optional(type_hint)
             if dependency_type is None:
                 # Can't determine single type (e.g., Union[A, B] or just None)
                 continue

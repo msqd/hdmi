@@ -7,6 +7,7 @@ a validated, immutable Container when build() is called.
 import inspect
 from typing import TYPE_CHECKING, Any, Callable, Type, get_type_hints
 
+from hdmi._type_utils import extract_type_from_optional
 from hdmi.definitions import ServiceDefinition
 from hdmi.definitions.default import Scope
 from hdmi.exceptions import ScopeViolationError
@@ -119,13 +120,18 @@ class ContainerBuilder:
                     )
 
     def _get_dependencies(self, service_type: Type) -> dict[str, Type]:
-        """Get dependencies from type annotations.
+        """Get dependencies that will actually be injected.
+
+        Only returns dependencies that will be injected at runtime, respecting:
+        - Optional dependencies not registered are skipped
+        - Optional dependencies with autowire=False are skipped
+        - Required dependencies are always included
 
         Args:
             service_type: The service type to analyze
 
         Returns:
-            Dictionary mapping parameter name to dependency type
+            Dictionary mapping parameter name to dependency type (only dependencies that will be injected)
         """
         try:
             sig = inspect.signature(service_type.__init__)
@@ -138,7 +144,32 @@ class ContainerBuilder:
             if param_name == "self":
                 continue
 
-            if param_name in hints:
-                dependencies[param_name] = hints[param_name]
+            if param_name not in hints:
+                continue
+
+            type_hint = hints[param_name]
+            has_default = param.default is not inspect.Parameter.empty
+
+            # Extract actual type from Optional/Union types (e.g., Config | None -> Config)
+            dependency_type = extract_type_from_optional(type_hint)
+            if dependency_type is None:
+                # Can't determine single type (e.g., Union[A, B] or just None)
+                continue
+
+            # Check if dependency is registered
+            is_registered = dependency_type in self._definitions
+
+            if has_default:
+                # Optional dependency - only include if registered AND autowire=True
+                if is_registered:
+                    dep_definition = self._definitions[dependency_type]
+                    if dep_definition.autowire:
+                        # Will be injected - include in dependencies
+                        dependencies[param_name] = dependency_type
+                    # else: skip (autowire=False, won't be injected)
+                # else: skip (not registered, won't be injected)
+            else:
+                # Required dependency - always include (will always be injected)
+                dependencies[param_name] = dependency_type
 
         return dependencies
