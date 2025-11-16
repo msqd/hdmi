@@ -16,3 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic dependency discovery from Python type annotations
 - Comprehensive Sphinx documentation organized using Diátaxis framework
 - Support for multi-level dependency chains with recursive resolution
+- `IContainer` protocol for consistent container interface
+- Static type checking with basedpyright
+
+### Changed
+
+- Reorganized container implementation into `hdmi.containers` package for better modularity

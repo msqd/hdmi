@@ -92,7 +92,7 @@ def demo_scope_validation():
     print("(Singleton → Scoped is not allowed)\n")
 
     try:
-        container = builder.build()
+        _container = builder.build()
         print("❌ Should have raised ScopeViolationError!")
     except ScopeViolationError as e:
         print("✓ Caught error at BUILD time (not runtime):")
@@ -121,7 +121,7 @@ def demo_lazy_instantiation():
     print("✓ Container built (no services instantiated yet)\n")
 
     print("Requesting ServiceA...")
-    service_a = container.get(ServiceA)
+    _service_a = container.get(ServiceA)
     print("✓ Got ServiceA\n")
 
     print("ServiceB was NOT instantiated (it wasn't requested)")

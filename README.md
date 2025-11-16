@@ -9,6 +9,8 @@ A lightweight dependency injection framework for Python 3.13+ with:
 
 ## Quick Example
 
+### Simple Example (Singleton Services)
+
 ```python
 from hdmi import ContainerBuilder
 
@@ -25,17 +27,34 @@ class UserService:
     def __init__(self, repo: UserRepository):
         self.repo = repo
 
-# Configure the container
+# Configure the container (all singletons)
 builder = ContainerBuilder()
 builder.register(DatabaseConnection, scope="singleton")
-builder.register(UserRepository, scope="scoped")
-builder.register(UserService, scope="transient")
+builder.register(UserRepository, scope="singleton")
+builder.register(UserService, scope="singleton")
 
 # Build validates the dependency graph
 container = builder.build()
 
-# Resolve services lazily
+# Resolve services lazily - dependencies are auto-wired!
 user_service = container.get(UserService)
+```
+
+### Using Scoped Services
+
+```python
+# For request-scoped services (e.g., web requests)
+builder = ContainerBuilder()
+builder.register(DatabaseConnection, scope="singleton")
+builder.register(UserRepository, scope="scoped")  # One per request
+builder.register(UserService, scope="transient")   # New each time
+
+container = builder.build()
+
+# Scoped services must be resolved within a scope context
+with container.scope() as scoped:
+    user_service = scoped.get(UserService)
+    # All scoped dependencies share the same instance within this scope
 ```
 
 ## Key Features
@@ -92,22 +111,15 @@ pip install hdmi  # Coming soon
 This project uses [uv](https://github.com/astral-sh/uv) for dependency management and follows strict TDD methodology.
 
 ```bash
-# Install dependencies
-uv sync --all-extras
-
-# Run tests
+# Run all checks (linting, type checking, tests)
 make test
-
-# Run tests with coverage
-make test-cov
 
 # Build documentation
 make docs
+
+# See all available commands
+make help
 ```
-
-## Project Status
-
-Currently in **specification phase**, actively implementing core features following TDD.
 
 ## License
 

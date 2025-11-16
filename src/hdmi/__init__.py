@@ -8,7 +8,7 @@ A lightweight dependency injection framework with:
 """
 
 from hdmi.builder import ContainerBuilder
-from hdmi.container import Container
+from hdmi.containers import Container, IContainer, ScopedContainer
 from hdmi.exceptions import (
     CircularDependencyError,
     HDMIError,
@@ -19,6 +19,8 @@ from hdmi.exceptions import (
 __all__ = [
     "ContainerBuilder",
     "Container",
+    "IContainer",
+    "ScopedContainer",
     "HDMIError",
     "ScopeViolationError",
     "CircularDependencyError",

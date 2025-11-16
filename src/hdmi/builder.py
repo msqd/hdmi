@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Literal, Type, get_type_hints
 from hdmi.exceptions import ScopeViolationError
 
 if TYPE_CHECKING:
-    from hdmi.container import Container
+    from hdmi.containers import Container
 
 Scope = Literal["singleton", "scoped", "transient"]
 
@@ -78,7 +78,7 @@ class ContainerBuilder:
             UnresolvableDependencyError: If a dependency cannot be resolved
             ScopeViolationError: If scope hierarchy is violated
         """
-        from hdmi.container import Container
+        from hdmi.containers import Container
 
         # Validate scope hierarchy for all registrations
         self._validate_scopes()

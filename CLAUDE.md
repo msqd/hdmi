@@ -7,11 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **hdmi** is a dependency injection framework for Python that manages dynamic dependencies with late (just-in-time)
 resolution. The framework provides:
 
-- Dependency injection containers with runtime introspection capabilities
 - Late-binding dependency resolution (instantiated only when needed)
 - Type-annotation-based configuration using Python's standard typing system
 - Scope-aware dependency validation (singleton, scoped, transient)
-- Tools for inspecting and debugging the dependency graph at runtime
+- Early error detection at build time (before runtime)
 
 ## Development Setup
 
@@ -19,11 +18,9 @@ This project uses **uv** for dependency management and **pytest** for testing.
 
 ### Common Commands
 
+**Quick Testing (pytest only):**
 ```bash
-# Install dependencies
-uv sync
-
-# Run all tests
+# Run only pytest tests (no linting or type checking)
 uv run pytest
 
 # Run a single test file
@@ -37,12 +34,21 @@ uv run pytest -v
 
 # Run tests with coverage
 uv run pytest --cov=hdmi --cov-report=html
+```
 
-# Using Makefile targets
-make test           # Run all tests
-make test-verbose   # Run tests with verbose output
-make test-cov       # Run tests with coverage
-make help           # Show all available targets
+**Full Quality Checks (recommended for commits):**
+```bash
+# Run all checks: linting, formatting, type checking, and tests
+make test
+
+# Run with verbose test output
+make test TEST_VERBOSE=1
+
+# Run with coverage report
+make test TEST_COVERAGE=1
+
+# Show all available make targets
+make help
 ```
 
 ## Development Methodology
@@ -101,11 +107,11 @@ Documentation is organized into four categories:
 # Build documentation
 make docs
 
-# Build and watch for changes
+# Build and watch for changes (auto-rebuild on file changes)
 make docs-watch
 
-# Clean documentation build
-make docs-clean
+# Clean all build artifacts (including docs)
+make clean
 ```
 
 ## Architecture
@@ -172,13 +178,3 @@ user_service = container.get(UserService)  # creates all dependencies on-demand
 - **Simplicity by Design**: Two core concepts (ContainerBuilder, Container), one clear workflow
 - **No External DSL**: Pure Python, no YAML/XML required (unlike harp/rodi)
 - **Minimal Overhead**: Lightweight and fast
-- **Introspection First**: Easy to inspect and debug
-
-## Project Status
-
-This project is in the **specification phase**. The focus is currently on:
-1. Defining the API and behavior through tests (TDD)
-2. Documenting the architecture and design decisions
-3. Creating examples demonstrating the type-annotation-based API
-
-Implementation will follow once the specification is solid.

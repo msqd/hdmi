@@ -1,4 +1,11 @@
-.PHONY: test test-verbose test-cov check docs docs-watch docs-clean clean help
+.PHONY: test install check docs docs-watch clean help
+
+UV ?= $(shell command -v uv 2>/dev/null || echo "uv")
+RUN ?= $(UV) run
+TEST_VERBOSE ?=
+TEST_COVERAGE ?=
+
+DEV ?= 1
 
 help:  ## Show this help message
 	@echo 'Usage: make [target]'
@@ -6,27 +13,22 @@ help:  ## Show this help message
 	@echo 'Available targets:'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-test:  ## Run all tests
-	uv run pytest
+install:
+	$(UV) pip install -e $(if $(DEV),.[dev],.)
 
-test-verbose:  ## Run tests with verbose output
-	uv run pytest -v
+check: install  ## Check and fix code with ruff (lint + format)
+	$(RUN) ruff check --fix .
+	$(RUN) ruff format .
+	$(RUN) basedpyright
 
-test-cov:  ## Run tests with coverage report
-	uv run pytest --cov=hdmi --cov-report=html --cov-report=term
+test: install check  ## Run all tests
+	$(RUN) pytest $(if $(TEST_VERBOSE),--verbose,) $(if $(TEST_COVERAGE),--cov=hdmi --cov-report=html --cov-report=term,)
 
-check:  ## Check and fix code with ruff (lint + format)
-	uv run ruff check --fix .
-	uv run ruff format .
+docs: install  ## Build documentation with Sphinx
+	$(RUN) sphinx-build -b html docs docs/_build/html
 
-docs:  ## Build documentation with Sphinx
-	uv run sphinx-build -b html docs docs/_build/html
-
-docs-watch:  ## Build documentation and watch for changes
-	uv run sphinx-autobuild docs docs/_build/html --watch src
-
-docs-clean:  ## Clean documentation build
-	rm -rf docs/_build
+docs-watch: install  ## Build documentation and watch for changes
+	$(RUN) sphinx-autobuild docs docs/_build/html --watch src
 
 clean:  ## Clean up temporary files
 	rm -rf .pytest_cache
