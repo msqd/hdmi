@@ -27,3 +27,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reorganized container implementation into `hdmi.containers` package for better modularity
 - `ServiceDefinition` is now exported from main `hdmi` package for direct usage
 - `ContainerBuilder.register()` now raises `ValueError` when both `ServiceDefinition` and `scope` parameter are provided
+- `UnresolvableDependencyError` now extends `KeyError` for backward compatibility while providing clearer error messages
+- Container resolution failures now raise `UnresolvableDependencyError` instead of raw `KeyError` with helpful guidance on how to fix the issue

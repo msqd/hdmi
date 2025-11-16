@@ -3,6 +3,8 @@
 Following TDD methodology, tests are written first to define behavior.
 """
 
+import pytest
+
 
 class SimpleService:
     """A simple service with no dependencies."""
@@ -142,3 +144,23 @@ def test_new_scope_creates_new_instances():
     assert service1 is not service2
     assert isinstance(service1, SimpleService)
     assert isinstance(service2, SimpleService)
+
+
+def test_scoped_container_raises_error_for_unregistered_service():
+    """Test that ScopedContainer raises error when requesting unregistered service.
+
+    RED: This test will verify error handling in scoped context.
+    """
+    from hdmi import ContainerBuilder
+    from hdmi.exceptions import UnresolvableDependencyError
+
+    builder = ContainerBuilder()
+    container = builder.build()
+
+    with container.scope() as scoped:
+        with pytest.raises(UnresolvableDependencyError) as exc_info:
+            scoped.get(SimpleService)
+
+        # Verify the error message is helpful
+        assert "SimpleService" in str(exc_info.value)
+        assert "not registered" in str(exc_info.value).lower()

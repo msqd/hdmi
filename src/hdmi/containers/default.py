@@ -45,7 +45,7 @@ class Container:
         """
         from hdmi.containers.scoped import ScopedContainer
 
-        return ScopedContainer(self, self._definitions)
+        return ScopedContainer(self)
 
     def get(self, service_type: Type[T]) -> T:
         """Resolve a service instance (lazy instantiation).
@@ -57,12 +57,18 @@ class Container:
             An instance of the service type
 
         Raises:
-            KeyError: If the service type is not registered
+            UnresolvableDependencyError: If the service type is not registered
             ScopeViolationError: If trying to resolve a scoped service outside a scope
         """
-        from hdmi.exceptions import ScopeViolationError
+        from hdmi.exceptions import ScopeViolationError, UnresolvableDependencyError
 
-        definition = self._definitions[service_type]
+        try:
+            definition = self._definitions[service_type]
+        except KeyError:
+            raise UnresolvableDependencyError(
+                f"{service_type.__name__} is not registered in the container. "
+                f"Use ContainerBuilder.register({service_type.__name__}) to register it."
+            ) from None
 
         # Scoped services cannot be resolved directly from Container
         if definition.scope == "scoped":

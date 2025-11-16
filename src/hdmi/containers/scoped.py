@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Type, TypeVar
 from hdmi.containers.default import Container
 
 if TYPE_CHECKING:
-    from hdmi.definitions import ServiceDefinition
+    pass
 
 T = TypeVar("T")
 
@@ -24,16 +24,15 @@ class ScopedContainer(Container):
     Implements IContainer protocol to provide a consistent interface with Container.
     """
 
-    def __init__(self, parent: Container, definitions: dict[Type, "ServiceDefinition"]):
+    def __init__(self, parent: Container):
         """Initialize ScopedContainer with a parent Container.
 
         Args:
             parent: The parent Container to delegate to
-            definitions: Service definitions (shared with parent)
         """
         # Don't call super().__init__ - we use parent's definitions
         self._parent = parent
-        self._definitions = definitions
+        self._definitions = parent._definitions
         self._scoped_instances: dict[Type, object] = {}
         # Note: we don't initialize _singletons as we delegate to parent
 
@@ -62,9 +61,17 @@ class ScopedContainer(Container):
             An instance of the service type
 
         Raises:
-            KeyError: If the service type is not registered
+            UnresolvableDependencyError: If the service type is not registered
         """
-        definition = self._definitions[service_type]
+        from hdmi.exceptions import UnresolvableDependencyError
+
+        try:
+            definition = self._definitions[service_type]
+        except KeyError:
+            raise UnresolvableDependencyError(
+                f"{service_type.__name__} is not registered in the container. "
+                f"Use ContainerBuilder.register({service_type.__name__}) to register it."
+            ) from None
 
         # If scoped, create and cache in this container
         if definition.scope == "scoped":

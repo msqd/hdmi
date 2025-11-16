@@ -25,7 +25,11 @@ class CircularDependencyError(HDMIError):
     pass
 
 
-class UnresolvableDependencyError(HDMIError):
-    """Raised when a required dependency cannot be resolved."""
+class UnresolvableDependencyError(HDMIError, KeyError):
+    """Raised when a required dependency cannot be resolved.
+
+    This exception extends both HDMIError and KeyError for compatibility
+    with code that catches KeyError.
+    """
 
     pass

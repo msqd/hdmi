@@ -104,10 +104,30 @@ def test_container_raises_error_for_unregistered_service():
     RED: This test will verify error handling.
     """
     from hdmi import ContainerBuilder
+    from hdmi.exceptions import UnresolvableDependencyError
 
     builder = ContainerBuilder()
     container = builder.build()
 
+    with pytest.raises(UnresolvableDependencyError) as exc_info:
+        container.get(SimpleService)
+
+    # Verify the error message is helpful
+    assert "SimpleService" in str(exc_info.value)
+    assert "not registered" in str(exc_info.value).lower()
+
+
+def test_unresolvable_dependency_error_extends_keyerror():
+    """Test that UnresolvableDependencyError extends KeyError for compatibility.
+
+    This ensures code catching KeyError will still work.
+    """
+    from hdmi import ContainerBuilder
+
+    builder = ContainerBuilder()
+    container = builder.build()
+
+    # Should be catchable as KeyError for backward compatibility
     with pytest.raises(KeyError):
         container.get(SimpleService)
 
