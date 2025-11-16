@@ -3,17 +3,19 @@ name = "hdmi"
 version = "0.1.0-rc2"
 description = "A dependency injection framework for Python with dynamic late-binding resolution"
 readme = "README.md"
+license = { file = "LICENSE" }
 authors = [
     { name = "Romain Dorgueil", email = "romain@makersquad.fr" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "anyio>=4.0.0",
+]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
-    "anyio>=4.0.0",
     "ruff>=0.8.0",
     "basedpyright>=1.21.0",
     "sphinx>=8.0.0",
