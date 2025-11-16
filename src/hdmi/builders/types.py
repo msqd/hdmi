@@ -1,4 +1,4 @@
-"""Default service definition implementation."""
+"""Service definition types for dependency injection."""
 
 from typing import Any, Callable, Literal, Type
 

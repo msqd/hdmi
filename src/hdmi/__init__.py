@@ -7,7 +7,7 @@ A lightweight dependency injection framework with:
 - Early error detection
 """
 
-from hdmi.builder import ContainerBuilder
+from hdmi.builders import ContainerBuilder
 from hdmi.containers import Container, IContainer, ScopedContainer
 from hdmi.exceptions import (
     CircularDependencyError,
@@ -15,7 +15,6 @@ from hdmi.exceptions import (
     ScopeViolationError,
     UnresolvableDependencyError,
 )
-from hdmi.definitions import ServiceDefinition
 
 __all__ = [
     "CircularDependencyError",
@@ -25,6 +24,5 @@ __all__ = [
     "IContainer",
     "ScopeViolationError",
     "ScopedContainer",
-    "ServiceDefinition",
     "UnresolvableDependencyError",
 ]

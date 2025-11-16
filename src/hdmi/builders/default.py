@@ -8,8 +8,7 @@ import inspect
 from typing import TYPE_CHECKING, Any, Callable, Type, get_type_hints
 
 from hdmi._type_utils import extract_type_from_optional
-from hdmi.definitions import ServiceDefinition
-from hdmi.definitions.default import Scope
+from hdmi.builders.types import Scope, ServiceDefinition
 from hdmi.exceptions import ScopeViolationError
 
 if TYPE_CHECKING:

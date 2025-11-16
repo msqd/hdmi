@@ -2,7 +2,7 @@
 
 import pytest
 
-from hdmi.definitions import ServiceDefinition
+from hdmi.builders.types import ServiceDefinition
 
 
 class SimpleService:

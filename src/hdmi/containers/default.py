@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Type, TypeVar, get_type_hints
 from hdmi._type_utils import extract_type_from_optional
 
 if TYPE_CHECKING:
-    from hdmi.definitions import ServiceDefinition
+    from hdmi.builders.types import ServiceDefinition
     from hdmi.containers.scoped import ScopedContainer
 
 T = TypeVar("T")
