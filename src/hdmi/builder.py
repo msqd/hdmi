@@ -5,7 +5,7 @@ a validated, immutable Container when build() is called.
 """
 
 import inspect
-from typing import TYPE_CHECKING, Type, get_type_hints, overload
+from typing import TYPE_CHECKING, Any, Callable, Type, get_type_hints
 
 from hdmi.definitions import ServiceDefinition
 from hdmi.definitions.default import Scope
@@ -34,42 +34,33 @@ class ContainerBuilder:
     def __init__(self):
         self._definitions: dict[Type, ServiceDefinition] = {}
 
-    @overload
     def register(
         self,
         service_type: Type,
+        /,
         *,
         scope: Scope = "singleton",
-    ) -> None: ...
-
-    @overload
-    def register(
-        self,
-        service_type: ServiceDefinition,
-    ) -> None: ...
-
-    def register(
-        self,
-        service_type: Type | ServiceDefinition,
-        *,
-        scope: Scope | None = None,
+        name: str | None = None,
+        factory: Callable[..., Any] | None = None,
+        autowire: bool = True,
     ) -> None:
         """Register a service type with the container.
 
         Args:
-            service_type: The class to register as a service, or a ServiceDefinition
-            scope: The lifecycle scope (singleton, scoped, or transient) - ignored if service_type is a ServiceDefinition
+            service_type: The class to register as a service
+            scope: The lifecycle scope (singleton, scoped, or transient)
+            name: Optional name for the service
+            factory: Optional factory function to create the service
+            autowire: Whether to auto-inject this service into optional dependencies (defaults to True)
         """
-        if isinstance(service_type, ServiceDefinition):
-            if scope is not None:
-                raise ValueError("Cannot specify scope when registering a ServiceDefinition.")
-            # Use the ServiceDefinition directly
-            definition = service_type
-            self._definitions[definition.service_type] = definition
-        else:
-            # Create a new ServiceDefinition from the type and scope
-            definition = ServiceDefinition(service_type, scope="singleton" if scope is None else scope)
-            self._definitions[service_type] = definition
+        definition = ServiceDefinition(
+            service_type,
+            scope=scope,
+            name=name,
+            factory=factory,
+            autowire=autowire,
+        )
+        self._definitions[service_type] = definition
 
     def build(self) -> "Container":
         """Build and validate the Container.
