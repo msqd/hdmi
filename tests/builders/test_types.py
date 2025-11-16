@@ -110,3 +110,72 @@ def test_autowire_must_be_keyword():
     """autowire parameter must be passed as keyword, not positional."""
     with pytest.raises(TypeError):
         ServiceDefinition(SimpleService, "singleton", None, None, True)  # type: ignore
+
+
+def test_async_factory_can_be_provided():
+    """factory parameter can be an async callable."""
+
+    async def create_service_async():
+        return SimpleService()
+
+    definition = ServiceDefinition(SimpleService, factory=create_service_async)
+
+    assert definition.factory is create_service_async
+
+
+def test_initializer_defaults_to_none():
+    """initializer parameter defaults to None when not provided."""
+    definition = ServiceDefinition(SimpleService)
+
+    assert definition.initializer is None
+
+
+def test_sync_initializer_can_be_provided():
+    """initializer parameter can be a sync callable."""
+
+    def init_service(service):
+        service.initialized = True
+
+    definition = ServiceDefinition(SimpleService, initializer=init_service)
+
+    assert definition.initializer is init_service
+
+
+def test_async_initializer_can_be_provided():
+    """initializer parameter can be an async callable."""
+
+    async def init_service_async(service):
+        service.initialized = True
+
+    definition = ServiceDefinition(SimpleService, initializer=init_service_async)
+
+    assert definition.initializer is init_service_async
+
+
+def test_finalizer_defaults_to_none():
+    """finalizer parameter defaults to None when not provided."""
+    definition = ServiceDefinition(SimpleService)
+
+    assert definition.finalizer is None
+
+
+def test_sync_finalizer_can_be_provided():
+    """finalizer parameter can be a sync callable."""
+
+    def cleanup_service(service):
+        service.cleaned = True
+
+    definition = ServiceDefinition(SimpleService, finalizer=cleanup_service)
+
+    assert definition.finalizer is cleanup_service
+
+
+def test_async_finalizer_can_be_provided():
+    """finalizer parameter can be an async callable."""
+
+    async def cleanup_service_async(service):
+        service.cleaned = True
+
+    definition = ServiceDefinition(SimpleService, finalizer=cleanup_service_async)
+
+    assert definition.finalizer is cleanup_service_async

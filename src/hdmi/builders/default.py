@@ -5,7 +5,7 @@ a validated, immutable Container when build() is called.
 """
 
 import inspect
-from typing import TYPE_CHECKING, Any, Callable, Type, get_type_hints
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Type, get_type_hints
 
 from hdmi._type_utils import extract_type_from_optional
 from hdmi.builders.types import Scope, ServiceDefinition
@@ -41,8 +41,10 @@ class ContainerBuilder:
         *,
         scope: Scope = "singleton",
         name: str | None = None,
-        factory: Callable[..., Any] | None = None,
+        factory: Callable[..., Any] | Callable[..., Awaitable[Any]] | None = None,
         autowire: bool = True,
+        initializer: Callable[[Any], None] | Callable[[Any], Awaitable[None]] | None = None,
+        finalizer: Callable[[Any], None] | Callable[[Any], Awaitable[None]] | None = None,
     ) -> None:
         """Register a service type with the container.
 
@@ -50,8 +52,10 @@ class ContainerBuilder:
             service_type: The class to register as a service
             scope: The lifecycle scope (singleton, scoped, or transient)
             name: Optional name for the service
-            factory: Optional factory function to create the service
+            factory: Optional factory function to create the service (sync or async)
             autowire: Whether to auto-inject this service into optional dependencies (defaults to True)
+            initializer: Optional initialization function called after service creation (sync or async)
+            finalizer: Optional cleanup function called when service is disposed (sync or async)
         """
         definition = ServiceDefinition(
             service_type,
@@ -59,6 +63,8 @@ class ContainerBuilder:
             name=name,
             factory=factory,
             autowire=autowire,
+            initializer=initializer,
+            finalizer=finalizer,
         )
         self._definitions[service_type] = definition
 
