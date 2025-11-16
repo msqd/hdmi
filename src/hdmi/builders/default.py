@@ -112,16 +112,17 @@ class ContainerBuilder:
                 dep_definition = self._definitions[dep_type]
 
                 # Validate scope hierarchy
-                service_scope_level = SCOPE_HIERARCHY[definition.scope]
-                dep_scope_level = SCOPE_HIERARCHY[dep_definition.scope]
-
-                # A service can only depend on services with same or higher scope level
-                # (higher number = longer lifetime)
-                if service_scope_level > dep_scope_level:
+                # The only unsafe dependency is: singleton -> scoped
+                # (singleton needs a scoped instance that only exists within a scope)
+                #
+                # Transient dependencies are safe because they're created once during
+                # the dependent's construction and live for the dependent's lifetime.
+                if definition.scope == "singleton" and dep_definition.scope == "scoped":
                     raise ScopeViolationError(
-                        f"{service_type.__name__} ({definition.scope}) cannot depend on "
-                        f"{dep_type.__name__} ({dep_definition.scope}). "
-                        f"Services can only depend on services with the same or longer lifetime."
+                        f"{service_type.__name__} (singleton) cannot depend on "
+                        f"{dep_type.__name__} (scoped). "
+                        f"Singleton services cannot depend on scoped services because "
+                        f"scoped services only exist within a scope context."
                     )
 
     def _get_dependencies(self, service_type: Type) -> dict[str, Type]:

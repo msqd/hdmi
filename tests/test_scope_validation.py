@@ -8,9 +8,12 @@ Scope hierarchy (highest to lowest):
 - Transient: New instance every time
 
 Validation rules:
-- Singleton can only depend on Singleton
-- Scoped can depend on Singleton or Scoped
+- Singleton can depend on Singleton or Transient (but not Scoped)
+- Scoped can depend on Singleton, Scoped, or Transient
 - Transient can depend on any scope
+
+Note: Transient dependencies are created once during their dependent's construction
+and live for the dependent's lifetime, making them safe dependencies for any scope.
 """
 
 import pytest
@@ -87,14 +90,14 @@ class SingletonDependsOnScoped:
 
 
 class SingletonDependsOnTransient:
-    """Invalid: Singleton → Transient (lifetime violation)."""
+    """Valid: Singleton → Transient (transient lives with singleton)."""
 
     def __init__(self, dep: TransientService):
         self.dep = dep
 
 
 class ScopedDependsOnTransient:
-    """Invalid: Scoped → Transient (lifetime violation)."""
+    """Valid: Scoped → Transient (transient lives with scoped instance)."""
 
     def __init__(self, dep: TransientService):
         self.dep = dep
@@ -223,48 +226,6 @@ async def test_singleton_cannot_depend_on_scoped():
     assert "scoped" in str(exc_info.value).lower()
 
 
-@pytest.mark.anyio
-async def test_singleton_cannot_depend_on_transient():
-    """Test that singleton services cannot depend on transient services.
-
-    RED: This test will fail because scope validation isn't implemented yet.
-    """
-    from hdmi import ContainerBuilder
-    from hdmi.exceptions import ScopeViolationError
-
-    builder = ContainerBuilder()
-    builder.register(TransientService, scope="transient")
-    builder.register(SingletonDependsOnTransient, scope="singleton")
-
-    # Should raise ScopeViolationError during build()
-    with pytest.raises(ScopeViolationError) as exc_info:
-        builder.build()
-
-    assert "singleton" in str(exc_info.value).lower()
-    assert "transient" in str(exc_info.value).lower()
-
-
-@pytest.mark.anyio
-async def test_scoped_cannot_depend_on_transient():
-    """Test that scoped services cannot depend on transient services.
-
-    RED: This test will fail because scope validation isn't implemented yet.
-    """
-    from hdmi import ContainerBuilder
-    from hdmi.exceptions import ScopeViolationError
-
-    builder = ContainerBuilder()
-    builder.register(TransientService, scope="transient")
-    builder.register(ScopedDependsOnTransient, scope="scoped")
-
-    # Should raise ScopeViolationError during build()
-    with pytest.raises(ScopeViolationError) as exc_info:
-        builder.build()
-
-    assert "scoped" in str(exc_info.value).lower()
-    assert "transient" in str(exc_info.value).lower()
-
-
 # Optional dependency scope validation tests
 
 
@@ -318,22 +279,22 @@ async def test_singleton_with_optional_transient_autowire_false_is_valid():
 
 
 @pytest.mark.anyio
-async def test_singleton_with_optional_transient_autowire_true_is_invalid():
-    """Singleton with optional transient dependency is INVALID when autowire=True.
+async def test_singleton_with_optional_transient_autowire_true_is_valid():
+    """Singleton with optional transient dependency is valid when autowire=True.
 
-    Since autowire=True and the dependency is registered, it WILL be injected,
-    so the scope violation should be caught.
+    Since singleton → transient is now allowed (transient lives with singleton),
+    this should work correctly even when autowire=True.
     """
     from hdmi import ContainerBuilder
-    from hdmi.exceptions import ScopeViolationError
 
     builder = ContainerBuilder()
     builder.register(TransientService, scope="transient", autowire=True)
     builder.register(SingletonWithOptionalTransient, scope="singleton")
 
-    # Should raise ScopeViolationError during build()
-    with pytest.raises(ScopeViolationError) as exc_info:
-        builder.build()
+    # Should not raise ScopeViolationError
+    async with builder.build() as container:
+        service = await container.get(SingletonWithOptionalTransient)
 
-    assert "singleton" in str(exc_info.value).lower()
-    assert "transient" in str(exc_info.value).lower()
+        assert isinstance(service, SingletonWithOptionalTransient)
+        assert isinstance(service.dep, TransientService)
+        assert service.dep.value == "transient"
