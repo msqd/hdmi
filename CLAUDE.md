@@ -71,7 +71,25 @@ All code must be developed using the Red-Green-Refactor cycle:
 - Tests should be behavioral and describe what the code does, not how it does it
 - Use descriptive test names that explain the expected behavior
 - Keep tests focused on a single behavior
-- Tests live in the `tests/` directory, mirroring the `src/` structure
+- **Tests directory structure MUST mirror the Python package structure**:
+  - For `src/hdmi/module.py`, tests go in `tests/test_module.py`
+  - For `src/hdmi/subpackage/module.py`, tests go in `tests/subpackage/test_module.py`
+  - Maintain the same package hierarchy in tests as in src
+  - This ensures tests are organized, discoverable, and maintainable
+
+### Commit Guidelines
+
+**ALWAYS run `make test` before committing** to ensure all quality checks pass (linting, type checking, and tests).
+
+**Commit Message Best Practices:**
+- Focus on **what changed and why** for the user, not implementation details
+- Use conventional commits format: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
+- **NEVER mention tests passing or coverage** in commit messages
+  - Tests passing is a prerequisite for all commits (enforced by `make test`)
+  - This information adds no value to the commit history
+- Keep messages concise and user-focused
+- Example: `feat: add scope validation for dependency graph` (good)
+- Example: `feat: add scope validation with tests passing at 95% coverage` (bad - unnecessary noise)
 
 ## Documentation
 

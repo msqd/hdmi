@@ -8,7 +8,7 @@ import inspect
 from typing import TYPE_CHECKING, Type, TypeVar, get_type_hints
 
 if TYPE_CHECKING:
-    from hdmi.builder import ServiceRegistration
+    from hdmi.definitions import ServiceDefinition
     from hdmi.containers.scoped import ScopedContainer
 
 T = TypeVar("T")
@@ -26,15 +26,15 @@ class Container:
     ScopedContainer.
     """
 
-    def __init__(self, registrations: dict[Type, "ServiceRegistration"]):
-        """Initialize Container with validated registrations.
+    def __init__(self, definitions: dict[Type, "ServiceDefinition"]):
+        """Initialize Container with validated service definitions.
 
         This should only be called by ContainerBuilder.build().
 
         Args:
-            registrations: Validated service registrations from builder
+            definitions: Validated service definitions from builder
         """
-        self._registrations = registrations
+        self._definitions = definitions
         self._singletons: dict[Type, object] = {}
 
     def scope(self) -> "ScopedContainer":
@@ -45,7 +45,7 @@ class Container:
         """
         from hdmi.containers.scoped import ScopedContainer
 
-        return ScopedContainer(self, self._registrations)
+        return ScopedContainer(self, self._definitions)
 
     def get(self, service_type: Type[T]) -> T:
         """Resolve a service instance (lazy instantiation).
@@ -62,17 +62,17 @@ class Container:
         """
         from hdmi.exceptions import ScopeViolationError
 
-        registration = self._registrations[service_type]
+        definition = self._definitions[service_type]
 
         # Scoped services cannot be resolved directly from Container
-        if registration.scope == "scoped":
+        if definition.scope == "scoped":
             raise ScopeViolationError(
                 f"{service_type.__name__} is a scoped service and cannot be resolved "
                 f"directly from Container. Use Container.scope() to create a scoped context."
             )
 
         # Handle singleton scope
-        if registration.scope == "singleton":
+        if definition.scope == "singleton":
             if service_type not in self._singletons:
                 self._singletons[service_type] = self._create_instance(service_type)
             return self._singletons[service_type]  # type: ignore

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Type, TypeVar
 from hdmi.containers.default import Container
 
 if TYPE_CHECKING:
-    from hdmi.builder import ServiceRegistration
+    from hdmi.definitions import ServiceDefinition
 
 T = TypeVar("T")
 
@@ -24,16 +24,16 @@ class ScopedContainer(Container):
     Implements IContainer protocol to provide a consistent interface with Container.
     """
 
-    def __init__(self, parent: Container, registrations: dict[Type, "ServiceRegistration"]):
+    def __init__(self, parent: Container, definitions: dict[Type, "ServiceDefinition"]):
         """Initialize ScopedContainer with a parent Container.
 
         Args:
             parent: The parent Container to delegate to
-            registrations: Service registrations (shared with parent)
+            definitions: Service definitions (shared with parent)
         """
-        # Don't call super().__init__ - we use parent's registrations
+        # Don't call super().__init__ - we use parent's definitions
         self._parent = parent
-        self._registrations = registrations
+        self._definitions = definitions
         self._scoped_instances: dict[Type, object] = {}
         # Note: we don't initialize _singletons as we delegate to parent
 
@@ -64,16 +64,16 @@ class ScopedContainer(Container):
         Raises:
             KeyError: If the service type is not registered
         """
-        registration = self._registrations[service_type]
+        definition = self._definitions[service_type]
 
         # If scoped, create and cache in this container
-        if registration.scope == "scoped":
+        if definition.scope == "scoped":
             if service_type not in self._scoped_instances:
                 self._scoped_instances[service_type] = self._create_instance(service_type)
             return self._scoped_instances[service_type]  # type: ignore
 
         # For singleton, delegate to parent (singletons cached there)
-        if registration.scope == "singleton":
+        if definition.scope == "singleton":
             return self._parent.get(service_type)  # type: ignore
 
         # For transient, create locally (dependencies resolved through this scope)

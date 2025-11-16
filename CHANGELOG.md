@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for multi-level dependency chains with recursive resolution
 - `IContainer` protocol for consistent container interface
 - Static type checking with basedpyright
+- `ServiceDefinition` class for declarative service configuration with optional factory and name support
+- Support for custom factory functions to control service instantiation
+- Named service registration for future multi-registration support
 
 ### Changed
 
