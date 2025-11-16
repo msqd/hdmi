@@ -1,4 +1,4 @@
-Architecture Deep Dive
+Architecture deep dive
 ======================
 
 Overview
@@ -14,7 +14,7 @@ an immutable, validated **Container**. This separation ensures that configuratio
 are caught early (during build), while actual instantiation happens lazily (just-in-time)
 when services are first accessed.
 
-Core Components
+Core components
 ---------------
 
 .. mermaid::
@@ -44,7 +44,7 @@ Core Components
        style Container fill:#d4edda
        style Instance fill:#e1ffe1
 
-The Two Phases
+The two phases
 --------------
 
 Phase 1: Configuration (ContainerBuilder)
@@ -115,7 +115,7 @@ validated dependency graph ready for runtime use.
    # Later, at runtime, Container just resolves:
    user_service = container.get(UserService)  # Lazy instantiation
 
-Service Resolution Flow
+Service resolution flow
 -----------------------
 
 .. mermaid::
@@ -149,13 +149,13 @@ Service Resolution Flow
        Container-->>User: ServiceA instance
        Note over User,ServiceA: Resolution Phase<br/>Lazy instantiation
 
-Scope Hierarchy and Validation
+Scope hierarchy and validation
 -------------------------------
 
 One of **hdmi**'s key features is **scope-aware dependency validation**. Services have
 lifecycles (scopes) that determine when they are created and how long they live.
 
-The Three Scopes
+The three scopes
 ~~~~~~~~~~~~~~~~
 
 .. mermaid::
@@ -187,7 +187,7 @@ The Three Scopes
    - No reuse across calls
    - Ideal for: stateful operations, disposable services
 
-Scope Safety Rules
+Scope safety rules
 ~~~~~~~~~~~~~~~~~~
 
 **Critical principle**: A service can only depend on services in the **same or higher scope**.
@@ -229,7 +229,7 @@ short-lived service.
            # across multiple calls
            self.cmd = cmd
 
-Validation Matrix
+Validation matrix
 ~~~~~~~~~~~~~~~~~
 
 This table shows which dependencies are allowed:
@@ -249,7 +249,7 @@ Service Scope           Can Depend On
 - **Shorter-lived services CAN depend on longer-lived ones** because the dependency
   will outlive the service
 
-Build-Time Validation
+Build-time validation
 ~~~~~~~~~~~~~~~~~~~~~
 
 The **ContainerBuilder** catches scope violations during ``.build()``, not at runtime:
@@ -267,34 +267,30 @@ The **ContainerBuilder** catches scope violations during ``.build()``, not at ru
 This "fail fast" approach ensures that lifetime bugs are caught during development
 by the ContainerBuilder, not in production by the Container.
 
-Type Annotations and Dependency Discovery
+Type annotations and dependency discovery
 ------------------------------------------
 
 **hdmi** uses Python's standard type annotations to discover dependencies automatically:
 
 .. code-block:: python
 
-   from typing import Protocol
-
-   class IDatabase(Protocol):
-       def query(self, sql: str) -> list: ...
-
-   class IRepository(Protocol):
-       def find_user(self, id: int) -> User: ...
-
    # Dependencies are inferred from type annotations
+   class DatabaseConnection:
+       def __init__(self):
+           self.connected = True
+
    class UserRepository:
-       def __init__(self, db: IDatabase):
+       def __init__(self, db: DatabaseConnection):
            self.db = db
 
    class UserService:
-       def __init__(self, repo: IRepository):
+       def __init__(self, repo: UserRepository):
            self.repo = repo
 
    # Register with scopes
    builder = ContainerBuilder()
-   builder.register(DatabaseConnection, implements=IDatabase, scope="singleton")
-   builder.register(UserRepository, implements=IRepository, scope="scoped")
+   builder.register(DatabaseConnection, scope="singleton")
+   builder.register(UserRepository, scope="scoped")
    builder.register(UserService, scope="transient")
 
    container = builder.build()
@@ -306,7 +302,7 @@ When you register these services, **hdmi** automatically:
 3. Builds the dependency graph
 4. Validates scopes and cycles at ``.build()`` time
 
-Lifecycle Management
+Lifecycle management
 --------------------
 
 Services behave differently based on their scope:
@@ -359,10 +355,10 @@ Example with Scopes:
    cmd2 = container.get(CommandProcessor)
    assert cmd1 is not cmd2  # Always different instances
 
-Design Principles
+Design principles
 -----------------
 
-Early Validation, Late Instantiation
+Early validation, late instantiation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ContainerBuilder performs all validation during ``.build()``, producing an immutable
@@ -373,7 +369,7 @@ Container for runtime resolution. This separation ensures:
 - **Container resolves late**: Services are instantiated only when ``.get()`` is called
 - Memory is conserved by not creating unused services
 
-Immutability After Validation
+Immutability after validation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Once a Container is built, it's immutable. This ensures:
@@ -382,7 +378,7 @@ Once a Container is built, it's immutable. This ensures:
 - Predictable behavior
 - No runtime surprises from configuration changes
 
-Type-Driven Configuration
+Type-driven configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 By using Python's type annotations, we get:
@@ -392,7 +388,7 @@ By using Python's type annotations, we get:
 - Less boilerplate configuration
 - Compile-time safety (with mypy/pyright)
 
-Scope Safety
+Scope safety
 ~~~~~~~~~~~~
 
 Scope validation prevents common lifetime bugs:
@@ -401,7 +397,7 @@ Scope validation prevents common lifetime bugs:
 - Reusing transient services across operations
 - Accessing disposed services
 
-Simplicity Over Features
+Simplicity over features
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Unlike the harp/rodi implementation, **hdmi** focuses on:
@@ -411,43 +407,28 @@ Unlike the harp/rodi implementation, **hdmi** focuses on:
 - Standard library patterns
 - Clear phase separation (configuration → validation/runtime)
 
-Comparison with harp/rodi Implementation
------------------------------------------
+Design philosophy
+-----------------
 
-The harp implementation (based on rodi) has several layers:
-
-.. code-block:: text
-
-   harp/rodi architecture:
-   ├── Container (extends rodi.Container)
-   ├── ServiceDefinitionCollection (YAML-based)
-   ├── ServiceDefinition (Pydantic models)
-   ├── ServiceResolver (resolution logic)
-   └── ServiceProvider (instance creation)
-
-**hdmi** simplifies this to:
+**hdmi** follows a minimalist approach with just two core concepts:
 
 .. code-block:: text
 
    hdmi architecture:
    ├── ContainerBuilder (configuration)
-   └── Container (validation + runtime resolution)
+   ├── Container (validation + runtime resolution)
+   └── ServiceDefinition (optional advanced configuration)
 
-**Key differences:**
+**Key design choices:**
 
-========================  ===================================  ============================
-Aspect                    harp/rodi                            hdmi
-========================  ===================================  ============================
-Configuration             YAML + Pydantic models               Python type annotations
-Naming                    Container/Provider                   ContainerBuilder/Container
-Dependency discovery      Manual + annotations                 Pure type annotations
-Validation phase          Implicit during resolution           Explicit at ``.build()``
-Scope validation          Runtime checks                       Build-time validation
-API complexity            Many classes and concepts            Two core concepts
-External dependencies     rodi, pydantic                       Standard library only
-========================  ===================================  ============================
+- **Python-native configuration**: Use type annotations, no external DSLs
+- **Two-phase architecture**: Clear separation between configuration and runtime
+- **Build-time validation**: Catch all configuration errors before runtime
+- **Minimal dependencies**: Standard library only, no external packages
+- **Type-driven**: Leverage Python's typing system for safety and IDE support
+- **Explicit over implicit**: Clear phase transitions and error messages
 
-Error Handling
+Error handling
 --------------
 
 .. mermaid::

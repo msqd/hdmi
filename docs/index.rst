@@ -22,7 +22,7 @@ Features
 - **Early Validation**: Configuration errors caught at build time, not runtime
 - **Introspection Tools**: Inspect dependency graphs and resolution order at runtime
 
-Quick Example
+Quick example
 -------------
 
 .. code-block:: python
@@ -39,22 +39,30 @@ Quick Example
    container = builder.build()  # Validates scopes, cycles, dependencies
 
    # Phase 3: Resolve services (lazy instantiation)
-   service = container.get(UserService)
+   db = container.get(DatabaseConnection)  # Singleton - accessible directly
 
-Quick Links
+   # Scoped services require a scope context
+   with container.scope() as scope:
+       service = scope.get(UserService)
+
+Quick links
 -----------
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
 
-Project Status
---------------
+Current features
+----------------
 
-This project is currently in the **specification phase**. We are focusing on:
+The framework currently supports:
 
-1. Defining the API and behavior through tests (TDD methodology)
-2. Documenting the architecture and design decisions
-3. Creating examples demonstrating the type-annotation-based API
+- Service registration with lifecycle scopes (singleton, scoped, transient)
+- Automatic dependency resolution from type annotations
+- Build-time scope validation to prevent lifetime bugs
+- ServiceDefinition for advanced configuration (factories, named services)
+- ScopedContainer for managing scoped service lifecycles
+- Comprehensive error handling with descriptive messages
 
-Implementation will follow once the specification is solid.
+Development follows Test-Driven Development (TDD) methodology, ensuring robust
+and well-tested implementation.

@@ -6,8 +6,7 @@ Information-oriented technical descriptions and API documentation.
 .. toctree::
    :maxdepth: 2
 
-.. note::
-   API reference documentation will be added as the implementation progresses.
+   api
 
-   Reference documentation provides complete and accurate technical details,
-   including API documentation generated from docstrings.
+Complete and accurate technical details for the hdmi dependency injection framework,
+including API documentation and type definitions.
