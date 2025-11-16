@@ -27,7 +27,8 @@ class ServiceWithDependency:
         self.simple = simple
 
 
-def test_container_can_resolve_simple_service():
+@pytest.mark.anyio
+async def test_container_can_resolve_simple_service():
     """Test that Container can resolve a simple service with no dependencies.
 
     RED: This test will define the basic get() behavior.
@@ -36,15 +37,15 @@ def test_container_can_resolve_simple_service():
 
     builder = ContainerBuilder()
     builder.register(SimpleService)
-    container = builder.build()
+    async with builder.build() as container:
+        service = await container.get(SimpleService)
 
-    service = container.get(SimpleService)
-
-    assert isinstance(service, SimpleService)
-    assert service.value == "simple"
+        assert isinstance(service, SimpleService)
+        assert service.value == "simple"
 
 
-def test_container_singleton_returns_same_instance():
+@pytest.mark.anyio
+async def test_container_singleton_returns_same_instance():
     """Test that singleton scope returns the same instance.
 
     RED: This test will verify singleton behavior.
@@ -53,15 +54,15 @@ def test_container_singleton_returns_same_instance():
 
     builder = ContainerBuilder()
     builder.register(SimpleService, scope="singleton")
-    container = builder.build()
+    async with builder.build() as container:
+        service1 = await container.get(SimpleService)
+        service2 = await container.get(SimpleService)
 
-    service1 = container.get(SimpleService)
-    service2 = container.get(SimpleService)
-
-    assert service1 is service2
+        assert service1 is service2
 
 
-def test_container_transient_returns_different_instances():
+@pytest.mark.anyio
+async def test_container_transient_returns_different_instances():
     """Test that transient scope returns different instances.
 
     RED: This test will verify transient behavior.
@@ -70,17 +71,17 @@ def test_container_transient_returns_different_instances():
 
     builder = ContainerBuilder()
     builder.register(SimpleService, scope="transient")
-    container = builder.build()
+    async with builder.build() as container:
+        service1 = await container.get(SimpleService)
+        service2 = await container.get(SimpleService)
 
-    service1 = container.get(SimpleService)
-    service2 = container.get(SimpleService)
-
-    assert service1 is not service2
-    assert isinstance(service1, SimpleService)
-    assert isinstance(service2, SimpleService)
+        assert service1 is not service2
+        assert isinstance(service1, SimpleService)
+        assert isinstance(service2, SimpleService)
 
 
-def test_container_resolves_dependencies_from_type_annotations():
+@pytest.mark.anyio
+async def test_container_resolves_dependencies_from_type_annotations():
     """Test that Container automatically resolves dependencies from type annotations.
 
     RED: This test will fail because dependency resolution isn't implemented yet.
@@ -90,15 +91,15 @@ def test_container_resolves_dependencies_from_type_annotations():
     builder = ContainerBuilder()
     builder.register(SimpleService, scope="singleton")
     builder.register(ServiceWithDependency, scope="singleton")
-    container = builder.build()
+    async with builder.build() as container:
+        service = await container.get(ServiceWithDependency)
 
-    service = container.get(ServiceWithDependency)
-
-    assert isinstance(service, ServiceWithDependency)
-    assert isinstance(service.simple, SimpleService)
+        assert isinstance(service, ServiceWithDependency)
+        assert isinstance(service.simple, SimpleService)
 
 
-def test_container_raises_error_for_unregistered_service():
+@pytest.mark.anyio
+async def test_container_raises_error_for_unregistered_service():
     """Test that Container raises an error when requesting unregistered service.
 
     RED: This test will verify error handling.
@@ -107,17 +108,17 @@ def test_container_raises_error_for_unregistered_service():
     from hdmi.exceptions import UnresolvableDependencyError
 
     builder = ContainerBuilder()
-    container = builder.build()
+    async with builder.build() as container:
+        with pytest.raises(UnresolvableDependencyError) as exc_info:
+            await container.get(SimpleService)
 
-    with pytest.raises(UnresolvableDependencyError) as exc_info:
-        container.get(SimpleService)
-
-    # Verify the error message is helpful
-    assert "SimpleService" in str(exc_info.value)
-    assert "not registered" in str(exc_info.value).lower()
+        # Verify the error message is helpful
+        assert "SimpleService" in str(exc_info.value)
+        assert "not registered" in str(exc_info.value).lower()
 
 
-def test_unresolvable_dependency_error_extends_keyerror():
+@pytest.mark.anyio
+async def test_unresolvable_dependency_error_extends_keyerror():
     """Test that UnresolvableDependencyError extends KeyError for compatibility.
 
     This ensures code catching KeyError will still work.
@@ -125,14 +126,14 @@ def test_unresolvable_dependency_error_extends_keyerror():
     from hdmi import ContainerBuilder
 
     builder = ContainerBuilder()
-    container = builder.build()
+    async with builder.build() as container:
+        # Should be catchable as KeyError for backward compatibility
+        with pytest.raises(KeyError):
+            await container.get(SimpleService)
 
-    # Should be catchable as KeyError for backward compatibility
-    with pytest.raises(KeyError):
-        container.get(SimpleService)
 
-
-def test_container_raises_error_for_scoped_service():
+@pytest.mark.anyio
+async def test_container_raises_error_for_scoped_service():
     """Test that Container.get() raises exception when accessing scoped service.
 
     RED: Scoped services require a scope context and cannot be resolved
@@ -143,16 +144,16 @@ def test_container_raises_error_for_scoped_service():
 
     builder = ContainerBuilder()
     builder.register(SimpleService, scope="scoped")
-    container = builder.build()
+    async with builder.build() as container:
+        with pytest.raises(ScopeViolationError) as exc_info:
+            await container.get(SimpleService)
 
-    with pytest.raises(ScopeViolationError) as exc_info:
-        container.get(SimpleService)
-
-    assert "scoped" in str(exc_info.value).lower()
-    assert "scope()" in str(exc_info.value)
+        assert "scoped" in str(exc_info.value).lower()
+        assert "scope()" in str(exc_info.value)
 
 
-def test_container_scope_returns_scoped_container():
+@pytest.mark.anyio
+async def test_container_scope_returns_scoped_container():
     """Test that Container.scope() returns a ScopedContainer instance.
 
     RED: ScopedContainer is needed to resolve scoped services.
@@ -160,11 +161,10 @@ def test_container_scope_returns_scoped_container():
     from hdmi import ContainerBuilder, ScopedContainer
 
     builder = ContainerBuilder()
-    container = builder.build()
+    async with builder.build() as container:
+        scoped = container.scope()
 
-    scoped = container.scope()
-
-    assert isinstance(scoped, ScopedContainer)
+        assert isinstance(scoped, ScopedContainer)
 
 
 class Config:
@@ -181,7 +181,8 @@ class ServiceWithOptionalDependency:
         self.config = config if config is not None else Config()
 
 
-def test_container_skips_unregistered_optional_dependency():
+@pytest.mark.anyio
+async def test_container_skips_unregistered_optional_dependency():
     """Container does not inject optional dependencies that are not registered.
 
     When a parameter has a default value and its type is not registered in the
@@ -192,18 +193,18 @@ def test_container_skips_unregistered_optional_dependency():
     builder = ContainerBuilder()
     # Note: Config is NOT registered
     builder.register(ServiceWithOptionalDependency)
-    container = builder.build()
+    async with builder.build() as container:
+        service = await container.get(ServiceWithOptionalDependency)
 
-    service = container.get(ServiceWithOptionalDependency)
-
-    # Service should be created successfully
-    assert isinstance(service, ServiceWithOptionalDependency)
-    # Config should use the default (created inside __init__)
-    assert isinstance(service.config, Config)
-    assert service.config.value == "default_config"
+        # Service should be created successfully
+        assert isinstance(service, ServiceWithOptionalDependency)
+        # Config should use the default (created inside __init__)
+        assert isinstance(service.config, Config)
+        assert service.config.value == "default_config"
 
 
-def test_container_injects_registered_optional_dependency_with_autowire_true():
+@pytest.mark.anyio
+async def test_container_injects_registered_optional_dependency_with_autowire_true():
     """Container injects optional dependencies that are registered with autowire=True.
 
     When a parameter has a default value but its type is registered with autowire=True,
@@ -214,17 +215,17 @@ def test_container_injects_registered_optional_dependency_with_autowire_true():
     builder = ContainerBuilder()
     builder.register(Config, autowire=True)  # Explicitly autowire=True
     builder.register(ServiceWithOptionalDependency)
-    container = builder.build()
+    async with builder.build() as container:
+        service = await container.get(ServiceWithOptionalDependency)
+        injected_config = await container.get(Config)
 
-    service = container.get(ServiceWithOptionalDependency)
-    injected_config = container.get(Config)
-
-    # Config should be injected from the container
-    assert isinstance(service, ServiceWithOptionalDependency)
-    assert service.config is injected_config
+        # Config should be injected from the container
+        assert isinstance(service, ServiceWithOptionalDependency)
+        assert service.config is injected_config
 
 
-def test_container_skips_registered_optional_dependency_with_autowire_false():
+@pytest.mark.anyio
+async def test_container_skips_registered_optional_dependency_with_autowire_false():
     """Container does not inject optional dependencies when autowire=False.
 
     When a parameter has a default value and its type is registered with autowire=False,
@@ -235,16 +236,15 @@ def test_container_skips_registered_optional_dependency_with_autowire_false():
     builder = ContainerBuilder()
     builder.register(Config, autowire=False)  # Disable autowiring
     builder.register(ServiceWithOptionalDependency)
-    container = builder.build()
+    async with builder.build() as container:
+        service = await container.get(ServiceWithOptionalDependency)
 
-    service = container.get(ServiceWithOptionalDependency)
-
-    # Config should use the default (not injected)
-    assert isinstance(service, ServiceWithOptionalDependency)
-    assert isinstance(service.config, Config)
-    # Should be a different instance (not the singleton from container)
-    container_config = container.get(Config)
-    assert service.config is not container_config
+        # Config should use the default (not injected)
+        assert isinstance(service, ServiceWithOptionalDependency)
+        assert isinstance(service.config, Config)
+        # Should be a different instance (not the singleton from container)
+        container_config = await container.get(Config)
+        assert service.config is not container_config
 
 
 class ServiceWithRequiredDependency:
@@ -254,7 +254,8 @@ class ServiceWithRequiredDependency:
         self.config = config
 
 
-def test_container_always_injects_required_dependency():
+@pytest.mark.anyio
+async def test_container_always_injects_required_dependency():
     """Container always injects required dependencies regardless of autowire setting.
 
     When a parameter has no default value, it's a required dependency and should
@@ -265,11 +266,10 @@ def test_container_always_injects_required_dependency():
     builder = ContainerBuilder()
     builder.register(Config, autowire=False)  # autowire disabled
     builder.register(ServiceWithRequiredDependency)
-    container = builder.build()
+    async with builder.build() as container:
+        service = await container.get(ServiceWithRequiredDependency)
 
-    service = container.get(ServiceWithRequiredDependency)
-
-    # Config should still be injected (required dependency)
-    assert isinstance(service, ServiceWithRequiredDependency)
-    container_config = container.get(Config)
-    assert service.config is container_config  # Same instance
+        # Config should still be injected (required dependency)
+        assert isinstance(service, ServiceWithRequiredDependency)
+        container_config = await container.get(Config)
+        assert service.config is container_config  # Same instance

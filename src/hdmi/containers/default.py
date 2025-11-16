@@ -5,6 +5,7 @@ service instances lazily (just-in-time) when requested.
 """
 
 import inspect
+from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Type, TypeVar, get_type_hints
 
 from hdmi._type_utils import extract_type_from_optional
@@ -23,6 +24,7 @@ class Container:
     - Immutable: cannot be modified after creation
     - Pre-validated: all configuration errors caught during build
     - Lazy: services instantiated only when first requested via get()
+    - Async: all resolution and lifecycle management is async
 
     Implements IContainer protocol to provide a consistent interface with
     ScopedContainer.
@@ -38,6 +40,26 @@ class Container:
         """
         self._definitions = definitions
         self._singletons: dict[Type, object] = {}
+        self._exit_stack: AsyncExitStack | None = None
+
+    async def __aenter__(self) -> "Container":
+        """Enter the async context manager.
+
+        Returns:
+            Self to enable 'async with builder.build() as container:' syntax
+        """
+        self._exit_stack = AsyncExitStack()
+        await self._exit_stack.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit the async context manager and cleanup all managed services.
+
+        This triggers all registered finalizers and closes all async context managers.
+        """
+        if self._exit_stack is not None:
+            await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+            self._exit_stack = None
 
     def scope(self) -> "ScopedContainer":
         """Create a new scoped container for resolving scoped services.
@@ -49,7 +71,7 @@ class Container:
 
         return ScopedContainer(self)
 
-    def get(self, service_type: Type[T]) -> T:
+    async def get(self, service_type: Type[T]) -> T:
         """Resolve a service instance (lazy instantiation).
 
         Args:
@@ -82,13 +104,13 @@ class Container:
         # Handle singleton scope
         if definition.scope == "singleton":
             if service_type not in self._singletons:
-                self._singletons[service_type] = self._create_instance(service_type)
+                self._singletons[service_type] = await self._create_instance(service_type)
             return self._singletons[service_type]  # type: ignore
 
         # Handle transient scope (new instance every time)
-        return self._create_instance(service_type)  # type: ignore
+        return await self._create_instance(service_type)  # type: ignore
 
-    def _create_instance(self, service_type: Type[T]) -> T:
+    async def _create_instance(self, service_type: Type[T]) -> T:
         """Create an instance of a service, resolving dependencies.
 
         Args:
@@ -138,11 +160,11 @@ class Container:
                     dep_definition = self._definitions[dependency_type]
                     if dep_definition.autowire:
                         # Inject the dependency
-                        kwargs[param_name] = self.get(dependency_type)
+                        kwargs[param_name] = await self.get(dependency_type)
                     # else: skip (autowire=False, let class use default)
                 # else: skip (not registered, let class use default)
             else:
                 # Required dependency - always inject (even if autowire=False)
-                kwargs[param_name] = self.get(dependency_type)
+                kwargs[param_name] = await self.get(dependency_type)
 
         return service_type(**kwargs)  # type: ignore

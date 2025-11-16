@@ -6,7 +6,8 @@ These tests verify that the complete system works together correctly.
 import pytest
 
 
-def test_complete_dependency_chain():
+@pytest.mark.anyio
+async def test_complete_dependency_chain():
     """Test a complete dependency chain with multiple levels."""
     from hdmi import ContainerBuilder
 
@@ -34,22 +35,22 @@ def test_complete_dependency_chain():
     builder.register(Repository, scope="scoped")
     builder.register(Service, scope="transient")
 
-    container = builder.build()
+    async with builder.build() as container:
+        # Service depends on scoped Repository, so must be resolved through a scope
+        async with container.scope() as scoped:
+            service = await scoped.get(Service)
 
-    # Service depends on scoped Repository, so must be resolved through a scope
-    with container.scope() as scoped:
-        service = scoped.get(Service)
-
-        # Verify the entire chain is resolved
-        assert isinstance(service, Service)
-        assert isinstance(service.repo, Repository)
-        assert isinstance(service.repo.db, Database)
-        assert isinstance(service.repo.db.config, Config)
-        assert service.repo.db.config.setting == "production"
-        assert service.repo.db.connected
+            # Verify the entire chain is resolved
+            assert isinstance(service, Service)
+            assert isinstance(service.repo, Repository)
+            assert isinstance(service.repo.db, Database)
+            assert isinstance(service.repo.db.config, Config)
+            assert service.repo.db.config.setting == "production"
+            assert service.repo.db.connected
 
 
-def test_singleton_sharing_across_transients():
+@pytest.mark.anyio
+async def test_singleton_sharing_across_transients():
     """Test that singletons are shared across multiple transient instances."""
     from hdmi import ContainerBuilder
 
@@ -71,25 +72,25 @@ def test_singleton_sharing_across_transients():
     builder.register(SingletonCounter, scope="singleton")
     builder.register(TransientService, scope="transient")
 
-    container = builder.build()
+    async with builder.build() as container:
+        # Create multiple transient instances
+        service1 = await container.get(TransientService)
+        service2 = await container.get(TransientService)
+        service3 = await container.get(TransientService)
 
-    # Create multiple transient instances
-    service1 = container.get(TransientService)
-    service2 = container.get(TransientService)
-    service3 = container.get(TransientService)
+        # Transient services are different
+        assert service1 is not service2
+        assert service2 is not service3
 
-    # Transient services are different
-    assert service1 is not service2
-    assert service2 is not service3
-
-    # But they all share the same singleton
-    assert service1.counter is service2.counter
-    assert service2.counter is service3.counter
-    assert service1.counter.id == 1  # Only one instance created
-    assert SingletonCounter.instance_count == 1
+        # But they all share the same singleton
+        assert service1.counter is service2.counter
+        assert service2.counter is service3.counter
+        assert service1.counter.id == 1  # Only one instance created
+        assert SingletonCounter.instance_count == 1
 
 
-def test_readme_example():
+@pytest.mark.anyio
+async def test_readme_example():
     """Test the example from README.md to ensure it actually works."""
     from hdmi import ContainerBuilder
 
@@ -113,20 +114,20 @@ def test_readme_example():
     builder.register(UserService, scope="transient")
 
     # Build validates the dependency graph
-    container = builder.build()
+    async with builder.build() as container:
+        # UserService depends on scoped UserRepository, so must be resolved through a scope
+        async with container.scope() as scoped:
+            user_service = await scoped.get(UserService)
 
-    # UserService depends on scoped UserRepository, so must be resolved through a scope
-    with container.scope() as scoped:
-        user_service = scoped.get(UserService)
-
-        # Verify it works
-        assert isinstance(user_service, UserService)
-        assert isinstance(user_service.repo, UserRepository)
-        assert isinstance(user_service.repo.db, DatabaseConnection)
-        assert user_service.repo.db.connected
+            # Verify it works
+            assert isinstance(user_service, UserService)
+            assert isinstance(user_service.repo, UserRepository)
+            assert isinstance(user_service.repo.db, DatabaseConnection)
+            assert user_service.repo.db.connected
 
 
-def test_scope_violation_example():
+@pytest.mark.anyio
+async def test_scope_violation_example():
     """Test the scope violation example from README.md."""
     from hdmi import ContainerBuilder
     from hdmi.exceptions import ScopeViolationError

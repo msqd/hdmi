@@ -3,6 +3,8 @@
 Following TDD methodology, tests are written first to define behavior.
 """
 
+import pytest
+
 
 class SimpleService:
     """A simple service with no dependencies."""
@@ -17,7 +19,8 @@ class ServiceWithDependency:
         self.simple = simple
 
 
-def test_container_builder_can_register_service():
+@pytest.mark.anyio
+async def test_container_builder_can_register_service():
     """Test that ContainerBuilder can register a service type.
 
     RED: This test will fail because ContainerBuilder doesn't exist yet.
@@ -31,7 +34,8 @@ def test_container_builder_can_register_service():
     assert True
 
 
-def test_container_builder_can_build_container():
+@pytest.mark.anyio
+async def test_container_builder_can_build_container():
     """Test that ContainerBuilder can build a Container.
 
     RED: This test will fail because build() method doesn't exist yet.
@@ -41,13 +45,13 @@ def test_container_builder_can_build_container():
     builder = ContainerBuilder()
     builder.register(SimpleService)
 
-    container = builder.build()
+    async with builder.build() as container:
+        # Container should exist
+        assert container is not None
 
-    # Container should exist
-    assert container is not None
 
-
-def test_container_builder_register_with_scope():
+@pytest.mark.anyio
+async def test_container_builder_register_with_scope():
     """Test that ContainerBuilder can register a service with a specific scope.
 
     RED: This test will fail because scope parameter doesn't exist yet.
@@ -62,7 +66,8 @@ def test_container_builder_register_with_scope():
     assert True
 
 
-def test_container_builder_register_with_custom_scope():
+@pytest.mark.anyio
+async def test_container_builder_register_with_custom_scope():
     """ContainerBuilder.register() creates ServiceDefinition with custom scope."""
     from hdmi import ContainerBuilder
 
@@ -77,7 +82,8 @@ def test_container_builder_register_with_custom_scope():
     assert stored_def.scope == "scoped"
 
 
-def test_container_builder_register_with_name():
+@pytest.mark.anyio
+async def test_container_builder_register_with_name():
     """ContainerBuilder.register() supports name parameter."""
     from hdmi import ContainerBuilder
 
@@ -90,7 +96,8 @@ def test_container_builder_register_with_name():
     assert stored_def.name == "my_service"
 
 
-def test_container_builder_register_with_factory():
+@pytest.mark.anyio
+async def test_container_builder_register_with_factory():
     """ContainerBuilder.register() supports factory parameter."""
     from hdmi import ContainerBuilder
 
@@ -106,7 +113,8 @@ def test_container_builder_register_with_factory():
     assert stored_def.factory is create_simple_service
 
 
-def test_container_builder_register_with_autowire_true():
+@pytest.mark.anyio
+async def test_container_builder_register_with_autowire_true():
     """ContainerBuilder.register() supports autowire parameter set to True."""
     from hdmi import ContainerBuilder
 
@@ -119,7 +127,8 @@ def test_container_builder_register_with_autowire_true():
     assert stored_def.autowire is True
 
 
-def test_container_builder_register_with_autowire_false():
+@pytest.mark.anyio
+async def test_container_builder_register_with_autowire_false():
     """ContainerBuilder.register() supports autowire parameter set to False."""
     from hdmi import ContainerBuilder
 
@@ -132,7 +141,8 @@ def test_container_builder_register_with_autowire_false():
     assert stored_def.autowire is False
 
 
-def test_container_builder_register_with_all_parameters():
+@pytest.mark.anyio
+async def test_container_builder_register_with_all_parameters():
     """ContainerBuilder.register() supports all ServiceDefinition parameters."""
     from hdmi import ContainerBuilder
 

@@ -103,7 +103,8 @@ class ScopedDependsOnTransient:
 # Valid dependency tests
 
 
-def test_singleton_can_depend_on_singleton():
+@pytest.mark.anyio
+async def test_singleton_can_depend_on_singleton():
     """Test that singleton services can depend on other singletons.
 
     This is valid because both have the same lifetime.
@@ -115,14 +116,15 @@ def test_singleton_can_depend_on_singleton():
     builder.register(SingletonDependsOnSingleton, scope="singleton")
 
     # Should not raise ScopeViolationError
-    container = builder.build()
-    service = container.get(SingletonDependsOnSingleton)
+    async with builder.build() as container:
+        service = await container.get(SingletonDependsOnSingleton)
 
-    assert isinstance(service, SingletonDependsOnSingleton)
-    assert isinstance(service.dep, SingletonService)
+        assert isinstance(service, SingletonDependsOnSingleton)
+        assert isinstance(service.dep, SingletonService)
 
 
-def test_scoped_can_depend_on_singleton():
+@pytest.mark.anyio
+async def test_scoped_can_depend_on_singleton():
     """Test that scoped services can depend on singletons.
 
     This is valid because singleton outlives scoped.
@@ -134,17 +136,17 @@ def test_scoped_can_depend_on_singleton():
     builder.register(ScopedDependsOnSingleton, scope="scoped")
 
     # Should not raise ScopeViolationError during build
-    container = builder.build()
+    async with builder.build() as container:
+        # Scoped services must be resolved through a scope
+        async with container.scope() as scoped:
+            service = await scoped.get(ScopedDependsOnSingleton)
 
-    # Scoped services must be resolved through a scope
-    with container.scope() as scoped:
-        service = scoped.get(ScopedDependsOnSingleton)
-
-        assert isinstance(service, ScopedDependsOnSingleton)
-        assert isinstance(service.dep, SingletonService)
+            assert isinstance(service, ScopedDependsOnSingleton)
+            assert isinstance(service.dep, SingletonService)
 
 
-def test_scoped_can_depend_on_scoped():
+@pytest.mark.anyio
+async def test_scoped_can_depend_on_scoped():
     """Test that scoped services can depend on other scoped services.
 
     This is valid because both have the same lifetime.
@@ -156,17 +158,17 @@ def test_scoped_can_depend_on_scoped():
     builder.register(ScopedDependsOnScoped, scope="scoped")
 
     # Should not raise ScopeViolationError during build
-    container = builder.build()
+    async with builder.build() as container:
+        # Scoped services must be resolved through a scope
+        async with container.scope() as scoped:
+            service = await scoped.get(ScopedDependsOnScoped)
 
-    # Scoped services must be resolved through a scope
-    with container.scope() as scoped:
-        service = scoped.get(ScopedDependsOnScoped)
-
-        assert isinstance(service, ScopedDependsOnScoped)
-        assert isinstance(service.dep, ScopedService)
+            assert isinstance(service, ScopedDependsOnScoped)
+            assert isinstance(service.dep, ScopedService)
 
 
-def test_transient_can_depend_on_any_scope():
+@pytest.mark.anyio
+async def test_transient_can_depend_on_any_scope():
     """Test that transient services can depend on any scope.
 
     This is valid because transient has the shortest lifetime.
@@ -182,25 +184,25 @@ def test_transient_can_depend_on_any_scope():
     builder.register(TransientDependsOnTransient, scope="transient")
 
     # Should not raise ScopeViolationError during build
-    container = builder.build()
+    async with builder.build() as container:
+        # Transient→singleton and transient→transient can be resolved from Container
+        service1 = await container.get(TransientDependsOnSingleton)
+        assert isinstance(service1, TransientDependsOnSingleton)
 
-    # Transient→singleton and transient→transient can be resolved from Container
-    service1 = container.get(TransientDependsOnSingleton)
-    assert isinstance(service1, TransientDependsOnSingleton)
+        service3 = await container.get(TransientDependsOnTransient)
+        assert isinstance(service3, TransientDependsOnTransient)
 
-    service3 = container.get(TransientDependsOnTransient)
-    assert isinstance(service3, TransientDependsOnTransient)
-
-    # Transient→scoped must be resolved through a scope
-    with container.scope() as scoped:
-        service2 = scoped.get(TransientDependsOnScoped)
-        assert isinstance(service2, TransientDependsOnScoped)
+        # Transient→scoped must be resolved through a scope
+        async with container.scope() as scoped:
+            service2 = await scoped.get(TransientDependsOnScoped)
+            assert isinstance(service2, TransientDependsOnScoped)
 
 
 # Invalid dependency tests
 
 
-def test_singleton_cannot_depend_on_scoped():
+@pytest.mark.anyio
+async def test_singleton_cannot_depend_on_scoped():
     """Test that singleton services cannot depend on scoped services.
 
     RED: This test will fail because scope validation isn't implemented yet.
@@ -221,7 +223,8 @@ def test_singleton_cannot_depend_on_scoped():
     assert "scoped" in str(exc_info.value).lower()
 
 
-def test_singleton_cannot_depend_on_transient():
+@pytest.mark.anyio
+async def test_singleton_cannot_depend_on_transient():
     """Test that singleton services cannot depend on transient services.
 
     RED: This test will fail because scope validation isn't implemented yet.
@@ -241,7 +244,8 @@ def test_singleton_cannot_depend_on_transient():
     assert "transient" in str(exc_info.value).lower()
 
 
-def test_scoped_cannot_depend_on_transient():
+@pytest.mark.anyio
+async def test_scoped_cannot_depend_on_transient():
     """Test that scoped services cannot depend on transient services.
 
     RED: This test will fail because scope validation isn't implemented yet.
@@ -271,7 +275,8 @@ class SingletonWithOptionalTransient:
         self.dep = dep
 
 
-def test_singleton_with_unregistered_optional_transient_is_valid():
+@pytest.mark.anyio
+async def test_singleton_with_unregistered_optional_transient_is_valid():
     """Singleton with optional transient dependency is valid when transient is NOT registered.
 
     Since the transient dependency is not registered, it won't be injected,
@@ -284,14 +289,15 @@ def test_singleton_with_unregistered_optional_transient_is_valid():
     builder.register(SingletonWithOptionalTransient, scope="singleton")
 
     # Should not raise ScopeViolationError
-    container = builder.build()
-    service = container.get(SingletonWithOptionalTransient)
+    async with builder.build() as container:
+        service = await container.get(SingletonWithOptionalTransient)
 
-    assert isinstance(service, SingletonWithOptionalTransient)
-    assert service.dep is None  # Should use the default
+        assert isinstance(service, SingletonWithOptionalTransient)
+        assert service.dep is None  # Should use the default
 
 
-def test_singleton_with_optional_transient_autowire_false_is_valid():
+@pytest.mark.anyio
+async def test_singleton_with_optional_transient_autowire_false_is_valid():
     """Singleton with optional transient dependency is valid when autowire=False.
 
     Since autowire=False, the transient dependency won't be injected into the
@@ -304,14 +310,15 @@ def test_singleton_with_optional_transient_autowire_false_is_valid():
     builder.register(SingletonWithOptionalTransient, scope="singleton")
 
     # Should not raise ScopeViolationError
-    container = builder.build()
-    service = container.get(SingletonWithOptionalTransient)
+    async with builder.build() as container:
+        service = await container.get(SingletonWithOptionalTransient)
 
-    assert isinstance(service, SingletonWithOptionalTransient)
-    assert service.dep is None  # Should use the default (not injected)
+        assert isinstance(service, SingletonWithOptionalTransient)
+        assert service.dep is None  # Should use the default (not injected)
 
 
-def test_singleton_with_optional_transient_autowire_true_is_invalid():
+@pytest.mark.anyio
+async def test_singleton_with_optional_transient_autowire_true_is_invalid():
     """Singleton with optional transient dependency is INVALID when autowire=True.
 
     Since autowire=True and the dependency is registered, it WILL be injected,

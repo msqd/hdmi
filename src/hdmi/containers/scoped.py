@@ -4,6 +4,7 @@ ScopedContainer follows the decorator pattern, extending Container to provide
 scoped service resolution within a specific scope context.
 """
 
+from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Type, TypeVar
 
 from hdmi.containers.default import Container
@@ -34,24 +35,30 @@ class ScopedContainer(Container):
         self._parent = parent
         self._definitions = parent._definitions
         self._scoped_instances: dict[Type, object] = {}
+        self._exit_stack: AsyncExitStack | None = None
         # Note: we don't initialize _singletons as we delegate to parent
 
-    def __enter__(self) -> "ScopedContainer":
-        """Enter the scope context.
+    async def __aenter__(self) -> "ScopedContainer":
+        """Enter the async scope context.
 
         Returns:
-            Self to enable 'with container.scope() as scoped:' syntax
+            Self to enable 'async with container.scope() as scoped:' syntax
         """
+        self._exit_stack = AsyncExitStack()
+        await self._exit_stack.__aenter__()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Exit the scope context and clear scoped instances.
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit the async scope context and cleanup all scoped services.
 
-        This allows scoped instances to be garbage collected.
+        This triggers finalizers and closes async context managers for scoped services.
         """
+        if self._exit_stack is not None:
+            await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+            self._exit_stack = None
         self._scoped_instances.clear()
 
-    def get(self, service_type: Type[T]) -> T:
+    async def get(self, service_type: Type[T]) -> T:
         """Resolve a service instance within the scope.
 
         Args:
@@ -76,12 +83,12 @@ class ScopedContainer(Container):
         # If scoped, create and cache in this container
         if definition.scope == "scoped":
             if service_type not in self._scoped_instances:
-                self._scoped_instances[service_type] = self._create_instance(service_type)
+                self._scoped_instances[service_type] = await self._create_instance(service_type)
             return self._scoped_instances[service_type]  # type: ignore
 
         # For singleton, delegate to parent (singletons cached there)
         if definition.scope == "singleton":
-            return self._parent.get(service_type)  # type: ignore
+            return await self._parent.get(service_type)  # type: ignore
 
         # For transient, create locally (dependencies resolved through this scope)
-        return self._create_instance(service_type)  # type: ignore
+        return await self._create_instance(service_type)  # type: ignore
