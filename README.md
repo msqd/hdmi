@@ -27,11 +27,11 @@ class UserService:
     def __init__(self, repo: UserRepository):
         self.repo = repo
 
-# Configure the container (all singletons)
+# Configure the container (all singletons by default)
 builder = ContainerBuilder()
-builder.register(DatabaseConnection, scope="singleton")
-builder.register(UserRepository, scope="singleton")
-builder.register(UserService, scope="singleton")
+builder.register(DatabaseConnection)
+builder.register(UserRepository)
+builder.register(UserService)
 
 # Build validates the dependency graph
 container = builder.build()
@@ -45,9 +45,9 @@ user_service = container.get(UserService)
 ```python
 # For request-scoped services (e.g., web requests)
 builder = ContainerBuilder()
-builder.register(DatabaseConnection, scope="singleton")
-builder.register(UserRepository, scope="scoped")  # One per request
-builder.register(UserService, scope="transient")   # New each time
+builder.register(DatabaseConnection)  # singleton (default)
+builder.register(UserRepository, scoped=True)  # One per request
+builder.register(UserService, transient=True)   # New each time
 
 container = builder.build()
 
@@ -66,25 +66,26 @@ with container.scope() as scoped:
 
 ### Scope Safety
 
-Services have lifecycles that are validated at build time:
+Services have four lifecycles that are validated at build time:
 
-- **Singleton**: One instance per container (longest lifetime)
+- **Singleton** (default): One instance per container
 - **Scoped**: One instance per scope (e.g., per request)
-- **Transient**: New instance every time (shortest lifetime)
+- **Transient**: New instance every time
+- **Scoped Transient**: New instance every time, requires scope
 
-**Validation Rules:**
-- Singleton can only depend on Singleton
-- Scoped can depend on Singleton or Scoped
-- Transient can depend on any scope
+**Validation Rules (Simplified):**
+The only invalid dependency is when a non-scoped service (singleton or transient) depends on a scoped service.
 
 ```python
 #  Valid: Scoped � Singleton
-builder.register(DatabaseConnection, scope="singleton")
-builder.register(UserRepository, scope="scoped")
+builder = ContainerBuilder()
+builder.register(DatabaseConnection)  # singleton (default)
+builder.register(UserRepository, scoped=True)
 
 # L Invalid: Singleton � Scoped (raises ScopeViolationError)
-builder.register(RequestHandler, scope="scoped")
-builder.register(SingletonService, scope="singleton")  # depends on RequestHandler
+builder = ContainerBuilder()
+builder.register(RequestHandler, scoped=True)
+builder.register(SingletonService)  # singleton depends on scoped!
 container = builder.build()  # ScopeViolationError!
 ```
 

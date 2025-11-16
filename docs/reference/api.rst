@@ -14,10 +14,6 @@ ContainerBuilder
    :undoc-members:
    :show-inheritance:
 
-   .. automethod:: __init__
-   .. automethod:: register
-   .. automethod:: build
-
 Container
 ~~~~~~~~~
 
@@ -25,9 +21,6 @@ Container
    :members:
    :undoc-members:
    :show-inheritance:
-
-   .. automethod:: get
-   .. automethod:: scope
 
 ServiceDefinition
 ~~~~~~~~~~~~~~~~~
@@ -37,14 +30,20 @@ ServiceDefinition
    :undoc-members:
    :show-inheritance:
 
-   .. automethod:: __init__
-
    The ServiceDefinition class describes everything needed to know about a service:
 
    - **service_type**: The type/class to be registered (positional only)
-   - **scope**: The lifecycle scope ("singleton", "scoped", or "transient")
+   - **scoped**: Boolean flag indicating if the service is scoped (default: False)
+   - **transient**: Boolean flag indicating if the service is transient (default: False)
    - **name**: Optional name for named registrations
    - **factory**: Optional factory callable for custom instantiation
+
+   The combination of scoped and transient flags creates four service types:
+
+   - **Singleton** (scoped=False, transient=False): One instance per container
+   - **Scoped** (scoped=True, transient=False): One instance per scope
+   - **Transient** (scoped=False, transient=True): New instance every time
+   - **Scoped Transient** (scoped=True, transient=True): New instance every time, requires scope
 
    Example usage:
 
@@ -52,8 +51,14 @@ ServiceDefinition
 
       from hdmi import ServiceDefinition, ContainerBuilder
 
-      # Basic definition
-      definition = ServiceDefinition(MyService, scope="singleton")
+      # Basic definition (singleton by default)
+      definition = ServiceDefinition(MyService)
+
+      # Scoped service
+      scoped_definition = ServiceDefinition(MyService, scoped=True)
+
+      # Transient service
+      transient_definition = ServiceDefinition(MyService, transient=True)
 
       # With custom factory
       def create_service():
@@ -61,13 +66,13 @@ ServiceDefinition
 
       definition = ServiceDefinition(
           MyService,
-          scope="scoped",
+          scoped=True,
           factory=create_service
       )
 
       # Register with ContainerBuilder
       builder = ContainerBuilder()
-      builder.register(definition)  # Note: no scope parameter when using ServiceDefinition
+      builder.register(definition)  # Note: no boolean flags when using ServiceDefinition
 
 ScopedContainer
 ~~~~~~~~~~~~~~~
@@ -76,10 +81,6 @@ ScopedContainer
    :members:
    :undoc-members:
    :show-inheritance:
-
-   .. automethod:: get
-   .. automethod:: __enter__
-   .. automethod:: __exit__
 
 Protocols
 ---------
@@ -136,20 +137,31 @@ UnresolvableDependencyError
 Type definitions
 ----------------
 
-Scope
-~~~~~
+Service Types
+~~~~~~~~~~~~~
+
+Services are configured using two boolean flags that combine to create four distinct types:
 
 .. code-block:: python
 
-   from typing import Literal
+   # Singleton (default): scoped=False, transient=False
+   builder.register(MyService)
 
-   Scope = Literal["singleton", "scoped", "transient"]
+   # Scoped: scoped=True, transient=False
+   builder.register(MyService, scoped=True)
 
-Defines the three available service lifecycles:
+   # Transient: scoped=False, transient=True
+   builder.register(MyService, transient=True)
 
-- **singleton**: One instance per container
-- **scoped**: One instance per scope
-- **transient**: New instance every time
+   # Scoped Transient: scoped=True, transient=True
+   builder.register(MyService, scoped=True, transient=True)
+
+The four service types:
+
+- **Singleton**: One instance per container (default)
+- **Scoped**: One instance per scope
+- **Transient**: New instance every time
+- **Scoped Transient**: New instance every time, requires scope context
 
 Public API summary
 ------------------
@@ -186,8 +198,8 @@ Basic registration
    from hdmi import ContainerBuilder
 
    builder = ContainerBuilder()
-   builder.register(DatabaseService, scope="singleton")
-   builder.register(UserRepository, scope="scoped")
+   builder.register(DatabaseService)  # singleton (default)
+   builder.register(UserRepository, scoped=True)  # scoped service
 
    container = builder.build()
 
@@ -199,7 +211,7 @@ Basic registration
        repo = scope.get(UserRepository)
 
 Using service definition
-~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -208,11 +220,10 @@ Using service definition
    # Create definitions with custom configuration
    db_definition = ServiceDefinition(
        DatabaseService,
-       scope="singleton",
-       name="primary_db"
+       name="primary_db"  # singleton by default
    )
 
-   # Register definitions (no scope parameter allowed)
+   # Register definitions (no boolean flag parameters allowed)
    builder = ContainerBuilder()
    builder.register(db_definition)
 

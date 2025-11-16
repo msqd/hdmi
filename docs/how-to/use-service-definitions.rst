@@ -23,13 +23,17 @@ Creating a service definition
 
    from hdmi import ServiceDefinition
 
-   # Basic definition with scope
-   definition = ServiceDefinition(MyService, scope="singleton")
+   # Basic definition (singleton is default)
+   definition = ServiceDefinition(MyService)  # singleton (scoped=False, transient=False)
 
-   # Note: service_type must be positional, scope must be keyword
+   # Or explicitly specify scoped or transient
+   scoped_definition = ServiceDefinition(MyService, scoped=True)
+   transient_definition = ServiceDefinition(MyService, transient=True)
+
+   # Note: service_type must be positional, boolean flags must be keyword
    # This will fail:
    # definition = ServiceDefinition(service_type=MyService)  # TypeError
-   # definition = ServiceDefinition(MyService, "singleton")  # TypeError
+   # definition = ServiceDefinition(MyService, True)  # TypeError - use scoped=True
 
 Registering with container builder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -41,15 +45,15 @@ Registering with container builder
    builder = ContainerBuilder()
 
    # Register a ServiceDefinition
-   definition = ServiceDefinition(DatabaseService, scope="singleton")
+   definition = ServiceDefinition(DatabaseService)  # singleton (default)
    builder.register(definition)
 
-   # IMPORTANT: Cannot specify scope when registering ServiceDefinition
+   # IMPORTANT: Cannot specify boolean flags when registering ServiceDefinition
    # This will raise ValueError:
-   # builder.register(definition, scope="scoped")  # ValueError!
+   # builder.register(definition, scoped=True)  # ValueError!
 
    # For simple registrations, use the shorthand:
-   builder.register(UserService, scope="scoped")
+   builder.register(UserService, scoped=True)  # scoped service
 
 Using custom factories
 ----------------------
@@ -68,10 +72,9 @@ ServiceDefinition allows you to provide a custom factory function:
            database="myapp"
        )
 
-   # Create definition with factory
+   # Create definition with factory (singleton by default)
    db_definition = ServiceDefinition(
        DatabaseConnection,
-       scope="singleton",
        factory=create_database_connection
    )
 
@@ -109,15 +112,13 @@ ServiceDefinition supports named registrations for future multi-registration sce
 
    primary_db = ServiceDefinition(
        DatabaseConnection,
-       scope="singleton",
-       name="primary"
+       name="primary"  # singleton by default
    )
 
    readonly_db = ServiceDefinition(
        DatabaseConnection,
-       scope="singleton",
        name="readonly",
-       factory=create_readonly_connection
+       factory=create_readonly_connection  # singleton by default
    )
 
    builder = ContainerBuilder()
@@ -138,11 +139,11 @@ ServiceDefinition is now exported from the main hdmi package:
    # Direct import from hdmi
    from hdmi import ServiceDefinition, ContainerBuilder
 
-   # Create reusable definitions
+   # Create reusable definitions (all singleton by default)
    STANDARD_SERVICES = [
-       ServiceDefinition(LoggingService, scope="singleton"),
-       ServiceDefinition(ConfigService, scope="singleton"),
-       ServiceDefinition(CacheService, scope="singleton"),
+       ServiceDefinition(LoggingService),
+       ServiceDefinition(ConfigService),
+       ServiceDefinition(CacheService),
    ]
 
    # Use in multiple places
@@ -167,17 +168,15 @@ Define services at module level for reuse:
    from myapp.database import DatabaseConnection
    from myapp.cache import RedisCache
 
-   # Export pre-configured definitions
+   # Export pre-configured definitions (singleton by default)
    database_definition = ServiceDefinition(
        DatabaseConnection,
-       scope="singleton",
        factory=lambda: DatabaseConnection.from_env()
    )
 
    cache_definition = ServiceDefinition(
        RedisCache,
-       scope="singleton",
-       name="main_cache"
+       name="main_cache"  # singleton by default
    )
 
    # main.py
@@ -199,16 +198,15 @@ Use ServiceDefinition to override services in tests:
    from hdmi import ContainerBuilder, ServiceDefinition
 
    def test_with_mock_database():
-       # Create mock with custom factory
+       # Create mock with custom factory (singleton by default)
        mock_db_definition = ServiceDefinition(
            DatabaseConnection,
-           scope="singleton",
            factory=lambda: MockDatabase()
        )
 
        builder = ContainerBuilder()
        builder.register(mock_db_definition)
-       builder.register(UserService, scope="scoped")
+       builder.register(UserService, scoped=True)  # scoped service
 
        container = builder.build()
        # UserService will use the mock database
@@ -217,13 +215,13 @@ Best practices
 --------------
 
 1. **Use shorthand for simple registrations**: If you only need type and scope,
-   use ``builder.register(Type, scope="...")`` directly.
+   use ``builder.register(Type, scoped=True)`` or ``builder.register(Type, transient=True)`` directly.
 
 2. **Use ServiceDefinition for complex scenarios**: When you need factories,
    names, or want to pre-configure definitions.
 
 3. **Don't mix approaches**: When registering a ServiceDefinition, never
-   provide a scope parameter to register().
+   provide boolean flag parameters (scoped/transient) to register().
 
 4. **Validate early**: ServiceDefinition validates the factory parameter
    immediately, catching errors early.

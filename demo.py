@@ -46,12 +46,12 @@ def demo_basic_usage():
     """Demonstrate basic dependency injection."""
     print("\n=== Demo 1: Basic Dependency Injection ===\n")
 
-    # Configure the container
+    # Configure the container using boolean flags
     builder = ContainerBuilder()
-    builder.register(Config, scope="singleton")
-    builder.register(Database, scope="singleton")
-    builder.register(UserRepository, scope="scoped")
-    builder.register(UserService, scope="transient")
+    builder.register(Config)  # singleton (default)
+    builder.register(Database)  # singleton (default)
+    builder.register(UserRepository, scoped=True)  # scoped service
+    builder.register(UserService, transient=True)  # transient service
 
     print("Building container (validates dependency graph)...")
     container = builder.build()
@@ -85,8 +85,8 @@ def demo_scope_validation():
             self.handler = handler
 
     builder = ContainerBuilder()
-    builder.register(RequestHandler, scope="scoped")
-    builder.register(CacheService, scope="singleton")
+    builder.register(RequestHandler, scoped=True)  # scoped service
+    builder.register(CacheService)  # singleton (default)
 
     print("Trying to build container with invalid scope dependency...")
     print("(Singleton → Scoped is not allowed)\n")
@@ -113,8 +113,8 @@ def demo_lazy_instantiation():
             print("  → ServiceB instantiated")
 
     builder = ContainerBuilder()
-    builder.register(ServiceA, scope="singleton")
-    builder.register(ServiceB, scope="singleton")
+    builder.register(ServiceA)  # singleton (default)
+    builder.register(ServiceB)  # singleton (default)
 
     print("Building container...")
     container = builder.build()

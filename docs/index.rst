@@ -29,11 +29,11 @@ Quick example
 
    from hdmi import ContainerBuilder
 
-   # Phase 1: Configure services
+   # Phase 1: Configure services using boolean flags
    builder = ContainerBuilder()
-   builder.register(DatabaseConnection, scope="singleton")
-   builder.register(UserRepository, scope="scoped")
-   builder.register(UserService, scope="transient")
+   builder.register(DatabaseConnection)  # singleton (default)
+   builder.register(UserRepository, scoped=True)  # scoped service
+   builder.register(UserService, transient=True)  # transient service
 
    # Phase 2: Build & validate
    container = builder.build()  # Validates scopes, cycles, dependencies
@@ -57,7 +57,7 @@ Current features
 
 The framework currently supports:
 
-- Service registration with lifecycle scopes (singleton, scoped, transient)
+- Service registration with four lifecycle types (singleton, scoped, transient, scoped transient)
 - Automatic dependency resolution from type annotations
 - Build-time scope validation to prevent lifetime bugs
 - ServiceDefinition for advanced configuration (factories, named services)

@@ -157,9 +157,9 @@ make clean
 ```python
 # Phase 1: Configuration
 builder = ContainerBuilder()
-builder.register(DatabaseConnection, scope="singleton")
-builder.register(UserRepository, scope="scoped")     # can depend on singleton
-builder.register(UserService, scope="transient")      # can depend on any scope
+builder.register(DatabaseConnection)  # singleton (default)
+builder.register(UserRepository, scoped=True)     # scoped service
+builder.register(UserService, transient=True)      # transient service
 
 # Phase 2: Build & Runtime
 container = builder.build()  # validates graph, no instantiation yet

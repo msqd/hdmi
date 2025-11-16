@@ -69,10 +69,10 @@ The **ContainerBuilder** is a mutable builder that accumulates service definitio
 
    builder = ContainerBuilder()
 
-   # Register services using type annotations with scopes
-   builder.register(DatabaseConnection, scope="singleton")
-   builder.register(UserRepository, scope="scoped")  # depends on DatabaseConnection
-   builder.register(UserService, scope="transient")   # depends on UserRepository
+   # Register services using boolean flags for scope configuration
+   builder.register(DatabaseConnection)  # singleton (default: scoped=False, transient=False)
+   builder.register(UserRepository, scoped=True)  # scoped service
+   builder.register(UserService, transient=True)  # transient service
 
 Phase 2: Build & Validation (ContainerBuilder → Container)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -127,8 +127,8 @@ Service resolution flow
        participant ServiceA
        participant ServiceB
 
-       User->>Builder: register(ServiceA, scope="singleton")
-       User->>Builder: register(ServiceB, scope="scoped")
+       User->>Builder: register(ServiceA)  # singleton (default)
+       User->>Builder: register(ServiceB, scoped=True)  # scoped
        Note over Builder: Configuration Phase<br/>No validation yet
 
        User->>Builder: build()
@@ -155,54 +155,61 @@ Scope hierarchy and validation
 One of **hdmi**'s key features is **scope-aware dependency validation**. Services have
 lifecycles (scopes) that determine when they are created and how long they live.
 
-The three scopes
-~~~~~~~~~~~~~~~~
+The four service types
+~~~~~~~~~~~~~~~~~~~~~~
+
+Services are configured using two boolean flags that combine to create four distinct types:
 
 .. mermaid::
 
    graph TD
-       Singleton[Singleton<br/>Highest Scope<br/>One instance per container]
-       Scoped[Scoped<br/>Middle Scope<br/>One instance per scope]
-       Transient[Transient<br/>Lowest Scope<br/>New instance every time]
-
-       Singleton -->|longer lifetime| Scoped
-       Scoped -->|longer lifetime| Transient
+       Singleton[Singleton<br/>scoped=False, transient=False<br/>Cached in Container]
+       Scoped[Scoped<br/>scoped=True, transient=False<br/>Cached in ScopedContainer]
+       Transient[Transient<br/>scoped=False, transient=True<br/>Not cached, no scope required]
+       ScopedTransient[Scoped Transient<br/>scoped=True, transient=True<br/>Not cached, requires scope]
 
        style Singleton fill:#e1ffe1
        style Scoped fill:#fff4e1
        style Transient fill:#ffe1e1
+       style ScopedTransient fill:#f0e1ff
 
-**Singleton** (Highest Scope)
+**Singleton** (scoped=False, transient=False - default)
    - Created once per container
    - Lives for the entire container lifetime
    - Ideal for: configurations, database connections, caches
 
-**Scoped** (Middle Scope)
+**Scoped** (scoped=True, transient=False)
    - Created once per scope (e.g., per web request, per operation)
    - Lives for the duration of the scope
    - Ideal for: request-specific services, unit of work patterns
 
-**Transient** (Lowest Scope)
+**Transient** (scoped=False, transient=True)
    - Created every time it's requested
    - No reuse across calls
    - Ideal for: stateful operations, disposable services
 
+**Scoped Transient** (scoped=True, transient=True)
+   - Created every time it's requested within a scope
+   - Requires scope context but not cached
+   - Ideal for: per-request commands, non-reusable scope-aware operations
+
 Scope safety rules
 ~~~~~~~~~~~~~~~~~~
 
-**Critical principle**: A service can only depend on services in the **same or higher scope**.
+**Critical principle**: Non-scoped services cannot depend on scoped services.
 
-This prevents lifetime bugs where a long-lived service captures a reference to a
-short-lived service.
+The validation rules have been simplified: the only invalid dependency pattern is when
+a non-scoped service (singleton or transient) attempts to depend on a scoped service,
+because scoped services only exist within a scope context.
 
 .. code-block:: python
 
-   # ✅ VALID: Singleton depends on Singleton
-   class Config:  # singleton
+   # ✅ VALID: Any service can depend on Singleton
+   class Config:  # singleton (default)
        pass
 
    class Database:  # singleton
-       def __init__(self, config: Config):  # Config is also singleton
+       def __init__(self, config: Config):
            self.config = config
 
    # ✅ VALID: Scoped depends on Singleton
@@ -210,43 +217,54 @@ short-lived service.
        def __init__(self, db: Database):  # Database is singleton
            self.db = db
 
-   # ✅ VALID: Transient depends on Scoped
-   class CommandProcessor:  # transient
-       def __init__(self, handler: RequestHandler):  # RequestHandler is scoped
-           self.handler = handler
+   # ✅ VALID: Singleton can now depend on Transient
+   class SingletonService:  # singleton
+       def __init__(self, loader: ConfigLoader):  # ConfigLoader is transient
+           # The transient is created once during singleton construction
+           # and lives for the singleton's lifetime
+           self.loader = loader
+
+   # ✅ VALID: Scoped can depend on Transient
+   class ScopedService:  # scoped
+       def __init__(self, cmd: CommandProcessor):  # CommandProcessor is transient
+           # The transient is created once per scoped instance
+           self.cmd = cmd
 
    # ❌ INVALID: Singleton depends on Scoped
    class SingletonService:  # singleton
        def __init__(self, handler: RequestHandler):  # RequestHandler is scoped!
-           # ERROR: Singleton would capture a scoped instance
-           # and hold it beyond the scope's lifetime
+           # ERROR: Singleton cannot access scoped services
+           # which only exist within a scope context
            self.handler = handler
 
-   # ❌ INVALID: Scoped depends on Transient
-   class ScopedService:  # scoped
-       def __init__(self, cmd: CommandProcessor):  # CommandProcessor is transient!
-           # ERROR: Scoped service would reuse a transient instance
-           # across multiple calls
-           self.cmd = cmd
+   # ❌ INVALID: Transient depends on Scoped (when resolved from Container)
+   class TransientService:  # transient (scoped=False)
+       def __init__(self, handler: RequestHandler):  # RequestHandler is scoped!
+           # ERROR: Non-scoped transient cannot depend on scoped services
+           self.handler = handler
 
 Validation matrix
 ~~~~~~~~~~~~~~~~~
 
 This table shows which dependencies are allowed:
 
-======================  ==================  ================  ==================
-Service Scope           Can Depend On
-======================  ==================  ================  ==================
-**Singleton**           ✅ Singleton        ❌ Scoped         ❌ Transient
-**Scoped**              ✅ Singleton        ✅ Scoped         ❌ Transient
-**Transient**           ✅ Singleton        ✅ Scoped         ✅ Transient
-======================  ==================  ================  ==================
+========================  ==================  ================  ==================  ====================
+Service Type              Can Depend On
+========================  ==================  ================  ==================  ====================
+**Singleton**             ✅ Singleton        ❌ Scoped         ✅ Transient       ❌ Scoped Transient
+**Scoped**                ✅ Singleton        ✅ Scoped         ✅ Transient       ✅ Scoped Transient
+**Transient**             ✅ Singleton        ❌ Scoped         ✅ Transient       ❌ Scoped Transient
+**Scoped Transient**      ✅ Singleton        ✅ Scoped         ✅ Transient       ✅ Scoped Transient
+========================  ==================  ================  ==================  ====================
 
-**Why these rules?**
+**Important note about transient dependencies:**
 
-- **Longer-lived services cannot capture shorter-lived dependencies** because the
-  dependency might be disposed while the service still exists
-- **Shorter-lived services CAN depend on longer-lived ones** because the dependency
+When a transient service is injected as a dependency, it's created **once** during the
+dependent's construction and lives for the dependent's lifetime. This means:
+
+- A singleton with a transient dependency gets one transient instance for its entire lifetime
+- A scoped service with a transient dependency gets one transient instance per scope
+- Direct requests for transient services still create new instances each time
   will outlive the service
 
 Build-time validation
@@ -257,8 +275,8 @@ The **ContainerBuilder** catches scope violations during ``.build()``, not at ru
 .. code-block:: python
 
    builder = ContainerBuilder()
-   builder.register(SingletonService, scope="singleton")
-   builder.register(RequestHandler, scope="scoped")
+   builder.register(SingletonService)  # singleton (default)
+   builder.register(RequestHandler, scoped=True)  # scoped
 
    # ContainerBuilder validates during .build() and fails immediately:
    container = builder.build()  # Raises ScopeViolationError:
@@ -287,11 +305,11 @@ Type annotations and dependency discovery
        def __init__(self, repo: UserRepository):
            self.repo = repo
 
-   # Register with scopes
+   # Register with scopes using boolean flags
    builder = ContainerBuilder()
-   builder.register(DatabaseConnection, scope="singleton")
-   builder.register(UserRepository, scope="scoped")
-   builder.register(UserService, scope="transient")
+   builder.register(DatabaseConnection)  # singleton (default)
+   builder.register(UserRepository, scoped=True)  # scoped service
+   builder.register(UserService, transient=True)  # transient service
 
    container = builder.build()
 

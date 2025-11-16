@@ -22,10 +22,10 @@ def main():
     print("=== Basic Registration (shorthand syntax) ===")
     builder = ContainerBuilder()
 
-    # Shorthand registration with Type + scope
-    builder.register(DatabaseService, scope="singleton")
-    builder.register(UserRepository, scope="scoped")
-    builder.register(UserService, scope="transient")
+    # Shorthand registration with Type + boolean flags
+    builder.register(DatabaseService)  # singleton (default)
+    builder.register(UserRepository, scoped=True)  # scoped service
+    builder.register(UserService, transient=True)  # transient service
 
     container = builder.build()
 
