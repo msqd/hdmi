@@ -1,6 +1,6 @@
 [project]
 name = "hdmi"
-version = "0.1.0-rc3"
+version = "0.1.0"
 description = "A dependency injection framework for Python with dynamic late-binding resolution"
 readme = "README.md"
 license = { file = "LICENSE" }

@@ -76,11 +76,19 @@ Or visit the [GitHub Actions dashboard](../../actions).
 ### 7. Verify Release
 
 ```bash
-# Test installation
-uv run --with hdmi@$VERSION python -c "import hdmi; print('Success!')"
+# Test installation from PyPI (specify Python 3.13)
+(cd /tmp && uv run --python 3.13 --with hdmi==$VERSION python -c "import hdmi; print('Success!')")
+
+# Or create a temporary virtual environment for interactive testing
+(TEST_DIR=$(mktemp -d) && \
+  uv venv --python 3.13 "$TEST_DIR" && \
+  uv pip install --python "$TEST_DIR" hdmi==$VERSION && \
+  "$TEST_DIR/bin/python" -c "import hdmi; print('Success! Environment ready at: $TEST_DIR')" && \
+  cd "$TEST_DIR" && \
+  exec "$TEST_DIR/bin/python")
 
 # View on PyPI
-open https://pypi.org/project/hdmi/
+open https://pypi.org/project/hdmi/$VERSION/
 ```
 
 ## Version Naming Conventions
