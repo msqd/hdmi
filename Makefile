@@ -1,4 +1,4 @@
-.PHONY: test test-verbose test-cov docs docs-watch docs-clean clean help
+.PHONY: test test-verbose test-cov check docs docs-watch docs-clean clean help
 
 help:  ## Show this help message
 	@echo 'Usage: make [target]'
@@ -14,6 +14,10 @@ test-verbose:  ## Run tests with verbose output
 
 test-cov:  ## Run tests with coverage report
 	uv run pytest --cov=hdmi --cov-report=html --cov-report=term
+
+check:  ## Check and fix code with ruff (lint + format)
+	uv run ruff check --fix .
+	uv run ruff format .
 
 docs:  ## Build documentation with Sphinx
 	uv run sphinx-build -b html docs docs/_build/html

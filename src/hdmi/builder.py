@@ -5,9 +5,12 @@ a validated, immutable Container when build() is called.
 """
 
 import inspect
-from typing import Any, Literal, Type, get_type_hints
+from typing import TYPE_CHECKING, Literal, Type, get_type_hints
 
 from hdmi.exceptions import ScopeViolationError
+
+if TYPE_CHECKING:
+    from hdmi.container import Container
 
 Scope = Literal["singleton", "scoped", "transient"]
 

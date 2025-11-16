@@ -36,16 +36,17 @@ def test_complete_dependency_chain():
 
     container = builder.build()
 
-    # Resolve the service
-    service = container.get(Service)
+    # Service depends on scoped Repository, so must be resolved through a scope
+    with container.scope() as scoped:
+        service = scoped.get(Service)
 
-    # Verify the entire chain is resolved
-    assert isinstance(service, Service)
-    assert isinstance(service.repo, Repository)
-    assert isinstance(service.repo.db, Database)
-    assert isinstance(service.repo.db.config, Config)
-    assert service.repo.db.config.setting == "production"
-    assert service.repo.db.connected
+        # Verify the entire chain is resolved
+        assert isinstance(service, Service)
+        assert isinstance(service.repo, Repository)
+        assert isinstance(service.repo.db, Database)
+        assert isinstance(service.repo.db.config, Config)
+        assert service.repo.db.config.setting == "production"
+        assert service.repo.db.connected
 
 
 def test_singleton_sharing_across_transients():
@@ -114,14 +115,15 @@ def test_readme_example():
     # Build validates the dependency graph
     container = builder.build()
 
-    # Resolve services lazily
-    user_service = container.get(UserService)
+    # UserService depends on scoped UserRepository, so must be resolved through a scope
+    with container.scope() as scoped:
+        user_service = scoped.get(UserService)
 
-    # Verify it works
-    assert isinstance(user_service, UserService)
-    assert isinstance(user_service.repo, UserRepository)
-    assert isinstance(user_service.repo.db, DatabaseConnection)
-    assert user_service.repo.db.connected
+        # Verify it works
+        assert isinstance(user_service, UserService)
+        assert isinstance(user_service.repo, UserRepository)
+        assert isinstance(user_service.repo.db, DatabaseConnection)
+        assert user_service.repo.db.connected
 
 
 def test_scope_violation_example():
@@ -143,7 +145,7 @@ def test_scope_violation_example():
 
     # Should raise ScopeViolationError
     with pytest.raises(ScopeViolationError) as exc_info:
-        container = builder.build()
+        builder.build()
 
     assert "SingletonService" in str(exc_info.value)
     assert "RequestHandler" in str(exc_info.value)

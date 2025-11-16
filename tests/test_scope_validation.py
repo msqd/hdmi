@@ -133,12 +133,15 @@ def test_scoped_can_depend_on_singleton():
     builder.register(SingletonService, scope="singleton")
     builder.register(ScopedDependsOnSingleton, scope="scoped")
 
-    # Should not raise ScopeViolationError
+    # Should not raise ScopeViolationError during build
     container = builder.build()
-    service = container.get(ScopedDependsOnSingleton)
 
-    assert isinstance(service, ScopedDependsOnSingleton)
-    assert isinstance(service.dep, SingletonService)
+    # Scoped services must be resolved through a scope
+    with container.scope() as scoped:
+        service = scoped.get(ScopedDependsOnSingleton)
+
+        assert isinstance(service, ScopedDependsOnSingleton)
+        assert isinstance(service.dep, SingletonService)
 
 
 def test_scoped_can_depend_on_scoped():
@@ -152,12 +155,15 @@ def test_scoped_can_depend_on_scoped():
     builder.register(ScopedService, scope="scoped")
     builder.register(ScopedDependsOnScoped, scope="scoped")
 
-    # Should not raise ScopeViolationError
+    # Should not raise ScopeViolationError during build
     container = builder.build()
-    service = container.get(ScopedDependsOnScoped)
 
-    assert isinstance(service, ScopedDependsOnScoped)
-    assert isinstance(service.dep, ScopedService)
+    # Scoped services must be resolved through a scope
+    with container.scope() as scoped:
+        service = scoped.get(ScopedDependsOnScoped)
+
+        assert isinstance(service, ScopedDependsOnScoped)
+        assert isinstance(service.dep, ScopedService)
 
 
 def test_transient_can_depend_on_any_scope():
@@ -175,17 +181,20 @@ def test_transient_can_depend_on_any_scope():
     builder.register(TransientDependsOnScoped, scope="transient")
     builder.register(TransientDependsOnTransient, scope="transient")
 
-    # Should not raise ScopeViolationError
+    # Should not raise ScopeViolationError during build
     container = builder.build()
 
+    # Transient→singleton and transient→transient can be resolved from Container
     service1 = container.get(TransientDependsOnSingleton)
     assert isinstance(service1, TransientDependsOnSingleton)
 
-    service2 = container.get(TransientDependsOnScoped)
-    assert isinstance(service2, TransientDependsOnScoped)
-
     service3 = container.get(TransientDependsOnTransient)
     assert isinstance(service3, TransientDependsOnTransient)
+
+    # Transient→scoped must be resolved through a scope
+    with container.scope() as scoped:
+        service2 = scoped.get(TransientDependsOnScoped)
+        assert isinstance(service2, TransientDependsOnScoped)
 
 
 # Invalid dependency tests

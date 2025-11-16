@@ -4,7 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**hdmi** is a dependency injection framework for Python that manages dynamic dependencies with late (just-in-time) resolution. The framework provides:
+**hdmi** is a dependency injection framework for Python that manages dynamic dependencies with late (just-in-time)
+resolution. The framework provides:
 
 - Dependency injection containers with runtime introspection capabilities
 - Late-binding dependency resolution (instantiated only when needed)
@@ -172,16 +173,6 @@ user_service = container.get(UserService)  # creates all dependencies on-demand
 - **No External DSL**: Pure Python, no YAML/XML required (unlike harp/rodi)
 - **Minimal Overhead**: Lightweight and fast
 - **Introspection First**: Easy to inspect and debug
-
-### Comparison with harp/rodi
-
-**hdmi** simplifies the harp/rodi architecture:
-
-- **No YAML configuration**: Uses Python type annotations instead
-- **Explicit validation phase**: `.build()` validates scope hierarchy and dependency graph
-- **Fewer abstractions**: Two main concepts (ContainerBuilder → Container) instead of five layers
-- **Scope validation**: Prevents lifetime bugs at build time (singleton depending on scoped, etc.)
-- **No external dependencies**: Standard library only (harp uses rodi + pydantic)
 
 ## Project Status
 

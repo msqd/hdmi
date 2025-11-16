@@ -28,7 +28,7 @@ class UserRepository:
 
     def __init__(self, db: Database):
         self.db = db
-        print(f"✓ UserRepository created with database")
+        print("✓ UserRepository created with database")
 
 
 class UserService:
@@ -36,7 +36,7 @@ class UserService:
 
     def __init__(self, repo: UserRepository):
         self.repo = repo
-        print(f"✓ UserService created with repository")
+        print("✓ UserService created with repository")
 
     def get_user(self, user_id: int):
         return f"User {user_id} from {self.repo.db.config.database_url}"
@@ -95,7 +95,7 @@ def demo_scope_validation():
         container = builder.build()
         print("❌ Should have raised ScopeViolationError!")
     except ScopeViolationError as e:
-        print(f"✓ Caught error at BUILD time (not runtime):")
+        print("✓ Caught error at BUILD time (not runtime):")
         print(f"  {e}\n")
         print("This prevents lifetime bugs from reaching production!")
 

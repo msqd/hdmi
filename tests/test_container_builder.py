@@ -3,8 +3,6 @@
 Following TDD methodology, tests are written first to define behavior.
 """
 
-import pytest
-
 
 class SimpleService:
     """A simple service with no dependencies."""

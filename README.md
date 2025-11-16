@@ -1,4 +1,4 @@
-# hdmi - Dynamic Dependency Injection for Python
+# hdmi - Dependency Management Interface
 
 A lightweight dependency injection framework for Python 3.13+ with:
 
@@ -59,11 +59,11 @@ Services have lifecycles that are validated at build time:
 - Transient can depend on any scope
 
 ```python
-#  Valid: Scoped ’ Singleton
+#  Valid: Scoped ï¿½ Singleton
 builder.register(DatabaseConnection, scope="singleton")
 builder.register(UserRepository, scope="scoped")
 
-# L Invalid: Singleton ’ Scoped (raises ScopeViolationError)
+# L Invalid: Singleton ï¿½ Scoped (raises ScopeViolationError)
 builder.register(RequestHandler, scope="scoped")
 builder.register(SingletonService, scope="singleton")  # depends on RequestHandler
 container = builder.build()  # ScopeViolationError!
@@ -108,8 +108,6 @@ make docs
 ## Project Status
 
 Currently in **specification phase**, actively implementing core features following TDD.
-
-See [CLAUDE.md](CLAUDE.md) for detailed architecture and development guidelines.
 
 ## License
 
