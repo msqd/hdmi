@@ -4,6 +4,7 @@ The Container is an immutable, validated dependency graph that resolves
 service instances lazily (just-in-time) when requested.
 """
 
+import asyncio
 import inspect
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Type, TypeVar, get_type_hints
@@ -136,8 +137,9 @@ class Container:
         except Exception:
             hints = {}
 
-        # Resolve dependencies from type annotations
-        kwargs = {}
+        # Collect dependencies to resolve concurrently
+        dependency_tasks: dict[str, asyncio.Task] = {}
+
         for param_name, param in sig.parameters.items():
             if param_name == "self":
                 continue
@@ -163,13 +165,23 @@ class Container:
                 if is_registered:
                     dep_definition = self._definitions[dependency_type]
                     if dep_definition.autowire:
-                        # Inject the dependency
-                        kwargs[param_name] = await self.get(dependency_type)
+                        # Create task for concurrent resolution
+                        dependency_tasks[param_name] = asyncio.create_task(self.get(dependency_type))
                     # else: skip (autowire=False, let class use default)
                 # else: skip (not registered, let class use default)
             else:
-                # Required dependency - always inject (even if autowire=False)
-                kwargs[param_name] = await self.get(dependency_type)
+                # Required dependency - create task for concurrent resolution
+                dependency_tasks[param_name] = asyncio.create_task(self.get(dependency_type))
+
+        # Resolve all dependencies concurrently
+        if dependency_tasks:
+            # Wait for all dependency tasks to complete
+            await asyncio.gather(*dependency_tasks.values())
+
+            # Collect results into kwargs
+            kwargs = {param_name: task.result() for param_name, task in dependency_tasks.items()}
+        else:
+            kwargs = {}
 
         instance = service_type(**kwargs)  # type: ignore
 
