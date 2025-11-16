@@ -1,6 +1,6 @@
 [project]
 name = "hdmi"
-version = "0.1.0-rc1"
+version = "0.1.0-rc2"
 description = "A dependency injection framework for Python with dynamic late-binding resolution"
 readme = "README.md"
 authors = [
