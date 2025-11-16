@@ -29,7 +29,7 @@ class Something:
 def main():
     builder = ContainerBuilder()
 
-    builder.register(Config, autowire=False)  # Disable autowiring for Config
+    builder.register(Config)  # autowire=True by default
     builder.register(Context)
     builder.register(Something)
 
