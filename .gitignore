@@ -1,11 +1,43 @@
-*.egg-info
-*.py[oc]
-.coverage
-.venv
-/.idea/
+# OS
+.DS_Store
+
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+*.so
+.venv/
+.python-version
+
+# Testing & Coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.hypothesis/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Build outputs
 build/
 dist/
-docs/_build/
-htmlcov/
 wheels/
+*.whl
+
+# Documentation
+docs/_build/
+
+# Type checkers
+.mypy_cache/
+.pytype/
+.pyre/
+.ruff_cache/
+
+# Claude Code
+.claude/*
+!.claude/commands/
