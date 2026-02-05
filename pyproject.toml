@@ -1,6 +1,6 @@
 [project]
 name = "hdmi"
-version = "0.2.0"
+version = "0.2.1"
 description = "A dependency injection framework for Python with dynamic late-binding resolution"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -11,6 +11,13 @@ requires-python = ">=3.13"
 dependencies = [
     "anyio>=4.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/msqd/hdmi"
+Documentation = "https://hdmi.readthedocs.io/"
+Repository = "https://github.com/msqd/hdmi"
+Issues = "https://github.com/msqd/hdmi/issues"
+Changelog = "https://github.com/msqd/hdmi/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
