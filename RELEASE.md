@@ -23,12 +23,13 @@ export VERSION=0.2.0
 
 For pre-releases use: `0.2.0-rc1`, `0.2.0-beta.1`, or `0.2.0-alpha.1`
 
-### 2. Update pyproject.toml
+### 2. Update Version
+
+The version is defined in `src/hdmi/__init__.py`. Use hatch to update it:
 
 ```bash
-sed -i.bak "s/^version = .*/version = \"$VERSION\"/" pyproject.toml && rm pyproject.toml.bak
-uv lock
-grep "^version" pyproject.toml
+uv run hatch version $VERSION
+grep "__version__" src/hdmi/__init__.py
 ```
 
 The last command verifies the version was updated correctly.
@@ -36,7 +37,7 @@ The last command verifies the version was updated correctly.
 ### 3. Commit Version Change
 
 ```bash
-git add pyproject.toml uv.lock
+git add src/hdmi/__init__.py
 git commit -m "chore: bump version to $VERSION"
 ```
 
@@ -121,17 +122,16 @@ uv run --with dist/*.whl python -c "import hdmi; print('Wheel works!')"
 
 ### Version Mismatch Error
 
-The CI/CD will fail if the tag doesn't match `pyproject.toml` version. Delete the tag and fix:
+The CI/CD will fail if the tag doesn't match the package version. Delete the tag and fix:
 
 ```bash
 # Delete local and remote tag
 git tag -d $VERSION
 git push origin :refs/tags/$VERSION
 
-# Fix version in pyproject.toml, commit, and recreate tag
-sed -i.bak "s/^version = .*/version = \"$VERSION\"/" pyproject.toml && rm pyproject.toml.bak
-uv lock
-git add pyproject.toml uv.lock
+# Fix version, commit, and recreate tag
+uv run hatch version $VERSION
+git add src/hdmi/__init__.py
 git commit --amend --no-edit
 git tag -a $VERSION -m "Release $VERSION"
 git push origin main --force-with-lease

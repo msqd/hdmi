@@ -1,6 +1,6 @@
 [project]
 name = "hdmi"
-version = "0.2.1"
+dynamic = ["version"]
 description = "A dependency injection framework for Python with dynamic late-binding resolution"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -30,11 +30,18 @@ dev = [
     "furo>=2024.0.0",
     "sphinxcontrib-mermaid>=1.0.0",
     "twine>=6.0.0",
+    "hatch>=1.16.2",
 ]
 
 [build-system]
-requires = ["uv_build>=0.9.7,<0.10.0"]
-build-backend = "uv_build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/hdmi/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hdmi"]
 
 [tool.ruff]
 line-length = 120
