@@ -87,11 +87,12 @@ jobs:
         if: github.ref_type == 'tag'
         run: |
           TAG_VERSION="${{ steps.version.outputs.version }}"
-          PYPROJECT_VERSION=$(grep -E '^version = ' pyproject.toml | sed -E 's/version = "(.+)"/\1/')
+          # Extract version from __init__.py (dynamic versioning via hatch)
+          PACKAGE_VERSION=$(grep -E '^__version__ = ' src/hdmi/__init__.py | sed -E 's/__version__ = "(.+)"/\1/')
           echo "Tag version: $TAG_VERSION"
-          echo "pyproject.toml version: $PYPROJECT_VERSION"
-          if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
-            echo "❌ Error: Tag version ($TAG_VERSION) does not match pyproject.toml version ($PYPROJECT_VERSION)"
+          echo "Package version: $PACKAGE_VERSION"
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "❌ Error: Tag version ($TAG_VERSION) does not match package version ($PACKAGE_VERSION)"
             exit 1
           fi
           echo "✅ Version validation passed"
