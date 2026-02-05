@@ -119,7 +119,7 @@ No decorators or manual wiring required!
 ## Installation
 
 ```bash
-pip install hdmi  # Coming soon
+pip install hdmi
 ```
 
 ## Development
