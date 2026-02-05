@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Service lifecycle hooks (initializers and finalizers)
 - Task deduplication for diamond dependency patterns
 - Boolean-based scope API with `scoped` and `transient` flags
+- Circular dependency detection at build time with descriptive error messages showing the cycle path
 
 ### Changed
 

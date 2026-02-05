@@ -36,7 +36,10 @@ ServiceDefinition
    - **scoped**: Boolean flag indicating if the service is scoped (default: False)
    - **transient**: Boolean flag indicating if the service is transient (default: False)
    - **name**: Optional name for named registrations
-   - **factory**: Optional factory callable for custom instantiation
+   - **factory**: Optional factory callable for custom instantiation (sync or async)
+   - **autowire**: Whether to auto-inject this service into optional dependencies (default: True)
+   - **initializer**: Optional callback called after service instantiation (sync or async)
+   - **finalizer**: Optional callback called when container/scope exits (sync or async)
 
    The combination of scoped and transient flags creates four service types:
 
@@ -70,9 +73,25 @@ ServiceDefinition
           factory=create_service
       )
 
-      # Register with ContainerBuilder
+      # With lifecycle hooks
+      definition_with_hooks = ServiceDefinition(
+          MyService,
+          initializer=lambda s: s.setup(),    # Called after instantiation
+          finalizer=lambda s: s.cleanup()     # Called when container exits
+      )
+
+      # With async hooks
+      async def async_init(service):
+          await service.connect()
+
+      async_definition = ServiceDefinition(
+          MyService,
+          initializer=async_init
+      )
+
+      # Registration: use the service_type directly with kwargs
       builder = ContainerBuilder()
-      builder.register(definition)  # Note: no boolean flags when using ServiceDefinition
+      builder.register(MyService, scoped=True, factory=create_service)
 
 ScopedContainer
 ~~~~~~~~~~~~~~~
@@ -195,39 +214,57 @@ Basic registration
 
 .. code-block:: python
 
+   import asyncio
    from hdmi import ContainerBuilder
 
-   builder = ContainerBuilder()
-   builder.register(DatabaseService)  # singleton (default)
-   builder.register(UserRepository, scoped=True)  # scoped service
+   async def main():
+       builder = ContainerBuilder()
+       builder.register(DatabaseService)  # singleton (default)
+       builder.register(UserRepository, scoped=True)  # scoped service
 
-   container = builder.build()
+       async with builder.build() as container:
+           # Singleton services can be accessed directly
+           db = await container.get(DatabaseService)
 
-   # Singleton services can be accessed directly
-   db = container.get(DatabaseService)
+           # Scoped services require a scope context
+           async with container.scope() as scoped:
+               repo = await scoped.get(UserRepository)
 
-   # Scoped services require a scope context
-   with container.scope() as scope:
-       repo = scope.get(UserRepository)
+   asyncio.run(main())
 
-Using service definition
-~~~~~~~~~~~~~~~~~~~~~~~~
+Using lifecycle hooks
+~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-   from hdmi import ContainerBuilder, ServiceDefinition
+   import asyncio
+   from hdmi import ContainerBuilder
 
-   # Create definitions with custom configuration
-   db_definition = ServiceDefinition(
-       DatabaseService,
-       name="primary_db"  # singleton by default
-   )
+   class DatabaseService:
+       def __init__(self):
+           self.connected = False
 
-   # Register definitions (no boolean flag parameters allowed)
-   builder = ContainerBuilder()
-   builder.register(db_definition)
+       def connect(self):
+           self.connected = True
 
-   container = builder.build()
+       def disconnect(self):
+           self.connected = False
+
+   async def main():
+       builder = ContainerBuilder()
+       builder.register(
+           DatabaseService,
+           initializer=lambda db: db.connect(),
+           finalizer=lambda db: db.disconnect()
+       )
+
+       async with builder.build() as container:
+           db = await container.get(DatabaseService)
+           assert db.connected  # initializer was called
+
+       # After exiting context, finalizer is called
+
+   asyncio.run(main())
 
 See also
 --------

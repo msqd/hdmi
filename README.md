@@ -1,5 +1,10 @@
 # hdmi - Dependency Management Interface
 
+> **Warning: Pre-Alpha Software**
+>
+> hdmi is experimental software in active development. Breaking changes may occur
+> until version 1.0. Use with care in production environments.
+
 A lightweight dependency injection framework for Python 3.13+ with:
 
 - **Type-driven dependency discovery** - Uses Python's standard type annotations
@@ -12,6 +17,7 @@ A lightweight dependency injection framework for Python 3.13+ with:
 ### Simple Example (Singleton Services)
 
 ```python
+import asyncio
 from hdmi import ContainerBuilder
 
 # Define your services
@@ -27,34 +33,43 @@ class UserService:
     def __init__(self, repo: UserRepository):
         self.repo = repo
 
-# Configure the container (all singletons by default)
-builder = ContainerBuilder()
-builder.register(DatabaseConnection)
-builder.register(UserRepository)
-builder.register(UserService)
+async def main():
+    # Configure the container (all singletons by default)
+    builder = ContainerBuilder()
+    builder.register(DatabaseConnection)
+    builder.register(UserRepository)
+    builder.register(UserService)
 
-# Build validates the dependency graph
-container = builder.build()
+    # Build validates the dependency graph
+    container = builder.build()
 
-# Resolve services lazily - dependencies are auto-wired!
-user_service = container.get(UserService)
+    # Resolve services lazily - dependencies are auto-wired!
+    user_service = await container.get(UserService)
+
+asyncio.run(main())
 ```
 
 ### Using Scoped Services
 
 ```python
-# For request-scoped services (e.g., web requests)
-builder = ContainerBuilder()
-builder.register(DatabaseConnection)  # singleton (default)
-builder.register(UserRepository, scoped=True)  # One per request
-builder.register(UserService, transient=True)   # New each time
+import asyncio
+from hdmi import ContainerBuilder
 
-container = builder.build()
+async def main():
+    # For request-scoped services (e.g., web requests)
+    builder = ContainerBuilder()
+    builder.register(DatabaseConnection)  # singleton (default)
+    builder.register(UserRepository, scoped=True)  # One per request
+    builder.register(UserService, transient=True)   # New each time
 
-# Scoped services must be resolved within a scope context
-with container.scope() as scoped:
-    user_service = scoped.get(UserService)
-    # All scoped dependencies share the same instance within this scope
+    container = builder.build()
+
+    # Scoped services must be resolved within a scope context
+    async with container.scope() as scoped:
+        user_service = await scoped.get(UserService)
+        # All scoped dependencies share the same instance within this scope
+
+asyncio.run(main())
 ```
 
 ## Key Features
@@ -77,12 +92,12 @@ Services have four lifecycles that are validated at build time:
 The only invalid dependency is when a non-scoped service (singleton or transient) depends on a scoped service.
 
 ```python
-#  Valid: Scoped � Singleton
+# Valid: Scoped -> Singleton
 builder = ContainerBuilder()
 builder.register(DatabaseConnection)  # singleton (default)
 builder.register(UserRepository, scoped=True)
 
-# L Invalid: Singleton � Scoped (raises ScopeViolationError)
+# Invalid: Singleton -> Scoped (raises ScopeViolationError)
 builder = ContainerBuilder()
 builder.register(RequestHandler, scoped=True)
 builder.register(SingletonService)  # singleton depends on scoped!

@@ -9,12 +9,10 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Type, get_type_hints
 
 from hdmi.utils.typing import extract_type_from_optional
 from hdmi.types.definitions import ServiceDefinition
-from hdmi.exceptions import ScopeViolationError
+from hdmi.exceptions import ScopeViolationError, CircularDependencyError
 
 if TYPE_CHECKING:
     from hdmi.containers import Container
-
-# Removed - no longer using scope hierarchy with boolean flags
 
 
 class ContainerBuilder:
@@ -85,11 +83,52 @@ class ContainerBuilder:
         """
         from hdmi.containers import Container
 
+        # Check for circular dependencies
+        self._check_circular_dependencies()
+
         # Validate scope hierarchy for all registrations
         self._validate_scopes()
 
         # Create and return the validated Container
         return Container(self._definitions)
+
+    def _check_circular_dependencies(self) -> None:
+        """Check for circular dependencies in the dependency graph.
+
+        Uses depth-first search to detect cycles. Fails fast on the first cycle found.
+
+        Raises:
+            CircularDependencyError: If a circular dependency is detected
+        """
+        visited = set()
+        path = []
+
+        def visit(service_type: Type) -> None:
+            if service_type in path:
+                # Found a cycle - build the cycle path
+                cycle_start = path.index(service_type)
+                cycle_path = path[cycle_start:] + [service_type]
+                path_str = " → ".join(cls.__name__ for cls in cycle_path)
+                raise CircularDependencyError(f"Circular dependency detected: {path_str}")
+
+            if service_type in visited:
+                return
+
+            path.append(service_type)
+
+            # Get dependencies that will be injected
+            dependencies = self._get_dependencies(service_type)
+
+            for dep_type in dependencies.values():
+                if dep_type in self._definitions:
+                    visit(dep_type)
+
+            path.pop()
+            visited.add(service_type)
+
+        # Visit all registered services
+        for service_type in self._definitions:
+            visit(service_type)
 
     def _validate_scopes(self) -> None:
         """Validate that scope rules are respected.
@@ -104,32 +143,57 @@ class ContainerBuilder:
             ScopeViolationError: If a non-scoped service depends on a scoped service
         """
         for service_type, definition in self._definitions.items():
-            # Get dependencies from type annotations
             dependencies = self._get_dependencies(service_type)
 
-            # Check each dependency's scope
-            for dep_name, dep_type in dependencies.items():
-                if dep_type not in self._definitions:
+            for dependency_name, dependency_type in dependencies.items():
+                if dependency_type not in self._definitions:
                     # Will be caught later by unresolvable dependency check
                     continue
 
-                dep_definition = self._definitions[dep_type]
+                self._validate_scope_compatibility(
+                    service_type, definition, dependency_type, self._definitions[dependency_type]
+                )
 
-                # Validate scope compatibility
-                # The only unsafe dependency is: non-scoped -> scoped
-                # (non-scoped service needs a scoped instance that only exists within a scope)
-                if not definition.scoped and dep_definition.scoped:
-                    service_type_str = (
-                        f"{service_type.__name__} (scoped={definition.scoped}, transient={definition.transient})"
-                    )
-                    dep_type_str = (
-                        f"{dep_type.__name__} (scoped={dep_definition.scoped}, transient={dep_definition.transient})"
-                    )
-                    raise ScopeViolationError(
-                        f"{service_type_str} cannot depend on {dep_type_str}. "
-                        f"Non-scoped services cannot depend on scoped services because "
-                        f"scoped services only exist within a scope context."
-                    )
+    def _validate_scope_compatibility(
+        self,
+        service_type: Type,
+        service_definition: ServiceDefinition,
+        dependency_type: Type,
+        dependency_definition: ServiceDefinition,
+    ) -> None:
+        """Validate that a service's scope is compatible with its dependency's scope.
+
+        Args:
+            service_type: The type of the service being validated
+            service_definition: The definition of the service
+            dependency_type: The type of the dependency
+            dependency_definition: The definition of the dependency
+
+        Raises:
+            ScopeViolationError: If a non-scoped service depends on a scoped service
+        """
+        # Non-scoped services cannot depend on scoped services
+        if not service_definition.scoped and dependency_definition.scoped:
+            service_description = self._format_service_description(service_type, service_definition)
+            dependency_description = self._format_service_description(dependency_type, dependency_definition)
+
+            raise ScopeViolationError(
+                f"{service_description} cannot depend on {dependency_description}. "
+                f"Non-scoped services cannot depend on scoped services because "
+                f"scoped services only exist within a scope context."
+            )
+
+    def _format_service_description(self, service_type: Type, definition: ServiceDefinition) -> str:
+        """Format a service type and definition for error messages.
+
+        Args:
+            service_type: The service type
+            definition: The service definition
+
+        Returns:
+            A formatted string describing the service and its scope
+        """
+        return f"{service_type.__name__} (scoped={definition.scoped}, transient={definition.transient})"
 
     def _get_dependencies(self, service_type: Type) -> dict[str, Type]:
         """Get dependencies that will actually be injected.
@@ -159,29 +223,46 @@ class ContainerBuilder:
             if param_name not in hints:
                 continue
 
-            type_hint = hints[param_name]
-            has_default = param.default is not inspect.Parameter.empty
-
-            # Extract actual type from Optional/Union types (e.g., Config | None -> Config)
-            dependency_type = extract_type_from_optional(type_hint)
+            dependency_type = self._extract_dependency_type(hints[param_name])
             if dependency_type is None:
-                # Can't determine single type (e.g., Union[A, B] or just None)
                 continue
 
-            # Check if dependency is registered
-            is_registered = dependency_type in self._definitions
-
-            if has_default:
-                # Optional dependency - only include if registered AND autowire=True
-                if is_registered:
-                    dep_definition = self._definitions[dependency_type]
-                    if dep_definition.autowire:
-                        # Will be injected - include in dependencies
-                        dependencies[param_name] = dependency_type
-                    # else: skip (autowire=False, won't be injected)
-                # else: skip (not registered, won't be injected)
-            else:
-                # Required dependency - always include (will always be injected)
+            if self._should_inject_dependency(dependency_type, param.default is not inspect.Parameter.empty):
                 dependencies[param_name] = dependency_type
 
         return dependencies
+
+    def _extract_dependency_type(self, type_hint: Type) -> Type | None:
+        """Extract the concrete type from a type hint.
+
+        Handles Optional types by extracting the non-None type.
+        Returns None if no single concrete type can be determined.
+
+        Args:
+            type_hint: The type annotation to process
+
+        Returns:
+            The extracted concrete type, or None if not determinable
+        """
+        return extract_type_from_optional(type_hint)
+
+    def _should_inject_dependency(self, dependency_type: Type, is_optional: bool) -> bool:
+        """Determine if a dependency should be injected.
+
+        Args:
+            dependency_type: The type of the dependency
+            is_optional: Whether the parameter has a default value
+
+        Returns:
+            True if the dependency should be injected, False otherwise
+        """
+        if not is_optional:
+            # Required dependencies are always injected
+            return True
+
+        # Optional dependencies need to be registered AND have autowire=True
+        if dependency_type not in self._definitions:
+            return False
+
+        definition = self._definitions[dependency_type]
+        return definition.autowire

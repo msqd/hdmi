@@ -20,7 +20,7 @@ The documentation is organized into four categories based on the Diátaxis frame
 - Focused on accomplishing specific tasks
 - Assumes basic knowledge
 - Practical and actionable
-- Example: "How to configure YAML-based dependency injection"
+- Example: "How to use service definitions with factories"
 
 ### 📖 Reference (`reference/`)
 **Information-oriented**: Technical descriptions
@@ -57,8 +57,8 @@ make docs
 # Build and watch for changes (auto-reload in browser)
 make docs-watch
 
-# Clean build artifacts
-make docs-clean
+# Clean build artifacts (includes docs)
+make clean
 ```
 
 The built documentation will be in `docs/_build/html/`. Open `docs/_build/html/index.html` in your browser to view it.

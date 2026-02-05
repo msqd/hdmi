@@ -78,11 +78,16 @@ ServiceDefinition allows you to provide a custom factory function:
        factory=create_database_connection
    )
 
-   builder = ContainerBuilder()
-   builder.register(db_definition)
+   import asyncio
 
-   container = builder.build()
-   db = container.get(DatabaseConnection)  # Uses the factory
+   async def main():
+       builder = ContainerBuilder()
+       builder.register(DatabaseConnection, factory=create_database_connection)
+
+       async with builder.build() as container:
+           db = await container.get(DatabaseConnection)  # Uses the factory
+
+   asyncio.run(main())
 
 Factory requirements
 ~~~~~~~~~~~~~~~~~~~~
@@ -102,6 +107,133 @@ Factory requirements
    # Invalid - not callable
    definition = ServiceDefinition(MyService, factory="not_callable")
    # Raises: ValueError: factory must be callable
+
+Using lifecycle hooks
+---------------------
+
+Services can have initializers (called after instantiation) and finalizers (called when
+the container exits). Both can be sync or async.
+
+Initializers
+~~~~~~~~~~~~
+
+Initializers are called after a service is instantiated:
+
+.. code-block:: python
+
+   import asyncio
+   from hdmi import ContainerBuilder
+
+   class DatabaseConnection:
+       def __init__(self):
+           self.connected = False
+
+       def connect(self):
+           self.connected = True
+
+   async def main():
+       builder = ContainerBuilder()
+
+       # Sync initializer
+       builder.register(
+           DatabaseConnection,
+           initializer=lambda db: db.connect()
+       )
+
+       async with builder.build() as container:
+           db = await container.get(DatabaseConnection)
+           assert db.connected  # initializer was called
+
+   asyncio.run(main())
+
+Async initializers are also supported:
+
+.. code-block:: python
+
+   async def async_connect(db):
+       await db.connect_async()
+
+   builder.register(DatabaseConnection, initializer=async_connect)
+
+Finalizers
+~~~~~~~~~~
+
+Finalizers are called when the container or scope exits:
+
+.. code-block:: python
+
+   import asyncio
+   from hdmi import ContainerBuilder
+
+   class DatabaseConnection:
+       def __init__(self):
+           self.connected = True
+
+       def disconnect(self):
+           self.connected = False
+
+   async def main():
+       builder = ContainerBuilder()
+       builder.register(
+           DatabaseConnection,
+           finalizer=lambda db: db.disconnect()
+       )
+
+       db_instance = None
+       async with builder.build() as container:
+           db_instance = await container.get(DatabaseConnection)
+           assert db_instance.connected
+
+       # After exiting the context, finalizer is called
+       assert not db_instance.connected
+
+   asyncio.run(main())
+
+Combined initializer and finalizer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   builder.register(
+       DatabaseConnection,
+       initializer=lambda db: db.connect(),
+       finalizer=lambda db: db.disconnect()
+   )
+
+Controlling autowiring
+----------------------
+
+The ``autowire`` parameter controls whether a service is automatically injected into
+optional dependencies. By default, ``autowire=True``.
+
+.. code-block:: python
+
+   from hdmi import ContainerBuilder
+
+   class OptionalFeature:
+       pass
+
+   class MyService:
+       def __init__(self, feature: OptionalFeature | None = None):
+           self.feature = feature
+
+   # With autowire=True (default), OptionalFeature is injected if registered
+   builder = ContainerBuilder()
+   builder.register(OptionalFeature)  # autowire=True by default
+   builder.register(MyService)
+
+   async with builder.build() as container:
+       service = await container.get(MyService)
+       assert service.feature is not None  # OptionalFeature was injected
+
+   # With autowire=False, the service is not injected into optional dependencies
+   builder = ContainerBuilder()
+   builder.register(OptionalFeature, autowire=False)
+   builder.register(MyService)
+
+   async with builder.build() as container:
+       service = await container.get(MyService)
+       assert service.feature is None  # Default value used instead
 
 Named services
 --------------
@@ -187,29 +319,27 @@ Define services at module level for reuse:
    builder.register(database_definition)
    builder.register(cache_definition)
 
-Testing with ServiceDefinition
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Testing with factories
+~~~~~~~~~~~~~~~~~~~~~~
 
-Use ServiceDefinition to override services in tests:
+Use factory functions to override services in tests:
 
 .. code-block:: python
 
    # test_services.py
-   from hdmi import ContainerBuilder, ServiceDefinition
+   import pytest
+   from hdmi import ContainerBuilder
 
-   def test_with_mock_database():
+   @pytest.mark.anyio
+   async def test_with_mock_database():
        # Create mock with custom factory (singleton by default)
-       mock_db_definition = ServiceDefinition(
-           DatabaseConnection,
-           factory=lambda: MockDatabase()
-       )
-
        builder = ContainerBuilder()
-       builder.register(mock_db_definition)
-       builder.register(UserService, scoped=True)  # scoped service
+       builder.register(DatabaseConnection, factory=lambda: MockDatabase())
+       builder.register(UserService)  # depends on DatabaseConnection
 
-       container = builder.build()
-       # UserService will use the mock database
+       async with builder.build() as container:
+           service = await container.get(UserService)
+           # UserService will use the mock database
 
 Best practices
 --------------
@@ -217,17 +347,20 @@ Best practices
 1. **Use shorthand for simple registrations**: If you only need type and scope,
    use ``builder.register(Type, scoped=True)`` or ``builder.register(Type, transient=True)`` directly.
 
-2. **Use ServiceDefinition for complex scenarios**: When you need factories,
-   names, or want to pre-configure definitions.
+2. **Always use async context manager**: Use ``async with builder.build() as container:``
+   to ensure proper lifecycle management and finalizer execution.
 
-3. **Don't mix approaches**: When registering a ServiceDefinition, never
-   provide boolean flag parameters (scoped/transient) to register().
+3. **Use initializers for setup**: Rather than calling setup methods manually, use
+   initializers to ensure services are properly configured.
 
-4. **Validate early**: ServiceDefinition validates the factory parameter
-   immediately, catching errors early.
+4. **Use finalizers for cleanup**: Register finalizers for services that need cleanup
+   (database connections, file handles, etc.) to ensure resources are released.
 
-5. **Group related definitions**: Create collections of related ServiceDefinitions
-   that can be registered together.
+5. **Use autowire=False for optional features**: When a service should only be
+   injected explicitly, not automatically into optional dependencies.
+
+6. **Validate early**: ServiceDefinition validates the factory, initializer, and
+   finalizer parameters immediately, catching errors early.
 
 See also
 --------
