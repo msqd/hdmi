@@ -97,23 +97,27 @@ validated dependency graph ready for runtime use.
 
 .. code-block:: python
 
-   # ContainerBuilder validates during .build()
-   container = builder.build()
-   # ↑ All validation happens HERE, by the ContainerBuilder
-   #   - Dependency graph constructed and validated
-   #   - Cycles checked
-   #   - Scope hierarchy validated
-   #   - Type compatibility ensured
+   import asyncio
 
-   # Container is now immutable and validated
-   # At this point:
-   # - All dependencies are validated ✓
-   # - No cycles exist ✓
-   # - Scope hierarchy is correct ✓
-   # - No services are instantiated yet
+   async def main():
+       # ContainerBuilder validates during .build()
+       async with builder.build() as container:
+           # ↑ All validation happens HERE, by the ContainerBuilder
+           #   - Dependency graph constructed and validated
+           #   - Cycles checked
+           #   - Scope hierarchy validated
 
-   # Later, at runtime, Container just resolves:
-   user_service = container.get(UserService)  # Lazy instantiation
+           # Container is now immutable and validated
+           # At this point:
+           # - All dependencies are validated ✓
+           # - No cycles exist ✓
+           # - Scope hierarchy is correct ✓
+           # - No services are instantiated yet
+
+           # Later, at runtime, Container just resolves:
+           user_service = await container.get(UserService)  # Lazy instantiation
+
+   asyncio.run(main())
 
 Service resolution flow
 -----------------------
@@ -353,25 +357,30 @@ Example with Scopes:
 
 .. code-block:: python
 
-   # Singleton: Created once
-   db = container.get(Database)
-   db2 = container.get(Database)
-   assert db is db2  # Same instance
+   import asyncio
 
-   # Scoped: Created once per scope
-   with container.create_scope() as scope:
-       handler1 = scope.get(RequestHandler)
-       handler2 = scope.get(RequestHandler)
-       assert handler1 is handler2  # Same instance within scope
+   async def main():
+       # Singleton: Created once
+       db = await container.get(Database)
+       db2 = await container.get(Database)
+       assert db is db2  # Same instance
 
-   with container.create_scope() as scope2:
-       handler3 = scope2.get(RequestHandler)
-       assert handler1 is not handler3  # Different instance in different scope
+       # Scoped: Created once per scope
+       async with container.scope() as scoped:
+           handler1 = await scoped.get(RequestHandler)
+           handler2 = await scoped.get(RequestHandler)
+           assert handler1 is handler2  # Same instance within scope
 
-   # Transient: New instance every time
-   cmd1 = container.get(CommandProcessor)
-   cmd2 = container.get(CommandProcessor)
-   assert cmd1 is not cmd2  # Always different instances
+       async with container.scope() as scoped2:
+           handler3 = await scoped2.get(RequestHandler)
+           assert handler1 is not handler3  # Different instance in different scope
+
+       # Transient: New instance every time
+       cmd1 = await container.get(CommandProcessor)
+       cmd2 = await container.get(CommandProcessor)
+       assert cmd1 is not cmd2  # Always different instances
+
+   asyncio.run(main())
 
 Design principles
 -----------------
@@ -442,7 +451,7 @@ Design philosophy
 - **Python-native configuration**: Use type annotations, no external DSLs
 - **Two-phase architecture**: Clear separation between configuration and runtime
 - **Build-time validation**: Catch all configuration errors before runtime
-- **Minimal dependencies**: Standard library only, no external packages
+- **Minimal dependencies**: Only requires anyio for async support
 - **Type-driven**: Leverage Python's typing system for safety and IDE support
 - **Explicit over implicit**: Clear phase transitions and error messages
 
@@ -456,28 +465,29 @@ Error handling
        Build -->|Success| Container[Container Created]
        Build -->|Cycle Detected| CycleError[CircularDependencyError]
        Build -->|Missing Dependency| MissingError[UnresolvableDependencyError]
-       Build -->|Type Mismatch| TypeError[TypeResolutionError]
        Build -->|Scope Violation| ScopeError[ScopeViolationError]
 
        Container --> Get{get}
        Get -->|Success| Instance[Service Instance]
-       Get -->|Instantiation Error| InstError[InstantiationError]
+       Get -->|Not Registered| GetError[UnresolvableDependencyError]
+       Get -->|Scoped from Container| ScopeGetError[ScopeViolationError]
 
        style CycleError fill:#ffcccc
        style MissingError fill:#ffcccc
-       style TypeError fill:#ffcccc
        style ScopeError fill:#ffcccc
-       style InstError fill:#ffcccc
+       style GetError fill:#ffcccc
+       style ScopeGetError fill:#ffcccc
 
 All configuration errors are detected at **build time**, not at runtime:
 
 - **CircularDependencyError**: Service A depends on B, which depends on A
 - **UnresolvableDependencyError**: Required dependency is not registered
-- **TypeResolutionError**: Type annotation cannot be resolved
-- **ScopeViolationError**: Service depends on a service with shorter lifetime (e.g., singleton → scoped)
+- **ScopeViolationError**: Non-scoped service depends on scoped service
 
-Only instantiation errors occur at resolution time:
+Runtime errors (when calling ``.get()``):
 
-- **InstantiationError**: Constructor raised an exception
+- **UnresolvableDependencyError**: Service type not registered in container
+- **ScopeViolationError**: Attempting to resolve scoped service from root Container (use ``container.scope()`` instead)
+- Standard Python exceptions if service constructor fails
 
-This ensures "fail fast" behavior - catch issues early during setup, not in production.
+This ensures "fail fast" behavior - catch configuration issues early during setup, not in production.

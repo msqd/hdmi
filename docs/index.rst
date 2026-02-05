@@ -1,6 +1,13 @@
 hdmi - Dynamic Dependency Injection for Python
 ==============================================
 
+.. warning::
+
+   **Pre-Alpha Software**
+
+   hdmi is experimental software in active development. Breaking changes may occur
+   until version 1.0. Use with care in production environments.
+
 **hdmi** is a dependency injection framework for Python that manages dynamic dependencies with late (just-in-time) resolution.
 
 .. toctree::
@@ -9,8 +16,8 @@ hdmi - Dynamic Dependency Injection for Python
 
    tutorials/index
    how-to/index
-   reference/index
    explanation/index
+   reference/index
 
 Features
 --------
@@ -20,30 +27,34 @@ Features
 - **Scope Safety**: Build-time validation prevents lifetime bugs (singleton → scoped, etc.)
 - **Late Binding**: Services instantiated lazily (just-in-time) when first accessed
 - **Early Validation**: Configuration errors caught at build time, not runtime
-- **Introspection Tools**: Inspect dependency graphs and resolution order at runtime
+- **Async-First Design**: All service resolution is async for modern Python applications
 
 Quick example
 -------------
 
 .. code-block:: python
 
+   import asyncio
    from hdmi import ContainerBuilder
 
-   # Phase 1: Configure services using boolean flags
-   builder = ContainerBuilder()
-   builder.register(DatabaseConnection)  # singleton (default)
-   builder.register(UserRepository, scoped=True)  # scoped service
-   builder.register(UserService, transient=True)  # transient service
+   async def main():
+       # Phase 1: Configure services using boolean flags
+       builder = ContainerBuilder()
+       builder.register(DatabaseConnection)  # singleton (default)
+       builder.register(UserRepository, scoped=True)  # scoped service
+       builder.register(UserService, transient=True)  # transient service
 
-   # Phase 2: Build & validate
-   container = builder.build()  # Validates scopes, cycles, dependencies
+       # Phase 2: Build & validate
+       async with builder.build() as container:  # Validates scopes, cycles, dependencies
 
-   # Phase 3: Resolve services (lazy instantiation)
-   db = container.get(DatabaseConnection)  # Singleton - accessible directly
+           # Phase 3: Resolve services (lazy instantiation)
+           db = await container.get(DatabaseConnection)  # Singleton - accessible directly
 
-   # Scoped services require a scope context
-   with container.scope() as scope:
-       service = scope.get(UserService)
+           # Scoped services require a scope context
+           async with container.scope() as scoped:
+               repo = await scoped.get(UserRepository)
+
+   asyncio.run(main())
 
 Quick links
 -----------

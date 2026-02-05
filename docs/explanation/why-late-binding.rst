@@ -43,14 +43,19 @@ Applications start faster because services aren't created until needed:
 
 .. code-block:: python
 
-   # With early binding: ALL services created here (slow!)
-   container = builder.build()
+   import asyncio
 
-   # With late binding: only validation happens (fast!)
-   container = builder.build()
+   async def main():
+       # With early binding: ALL services created here (slow!)
+       container = builder.build()
 
-   # Services created only when accessed
-   service = container.get(MyService)  # <- instantiation happens here
+       # With late binding: only validation happens (fast!)
+       container = builder.build()
+
+       # Services created only when accessed
+       service = await container.get(MyService)  # <- instantiation happens here
+
+   asyncio.run(main())
 
 For applications with many services, this can significantly reduce startup time.
 
@@ -61,19 +66,24 @@ Services that are never used are never created:
 
 .. code-block:: python
 
-   # Register many services
-   builder.register(ServiceA)
-   builder.register(ServiceB)
-   builder.register(ServiceC)
-   # ... 50 more services ...
+   import asyncio
 
-   container = builder.build()
+   async def main():
+       # Register many services
+       builder.register(ServiceA)
+       builder.register(ServiceB)
+       builder.register(ServiceC)
+       # ... 50 more services ...
 
-   # Only use one service
-   service_a = container.get(ServiceA)
+       container = builder.build()
 
-   # ServiceB, ServiceC, and the other 50 services are never instantiated
-   # Memory is conserved!
+       # Only use one service
+       service_a = await container.get(ServiceA)
+
+       # ServiceB, ServiceC, and the other 50 services are never instantiated
+       # Memory is conserved!
+
+   asyncio.run(main())
 
 This is especially valuable in:
 
@@ -88,18 +98,23 @@ Services can be created based on runtime conditions:
 
 .. code-block:: python
 
-   container = builder.build()
+   import asyncio
 
-   if user_wants_feature_x():
-       # Service created only if feature is used
-       feature_x = container.get(FeatureXService)
+   async def main():
+       container = builder.build()
 
-   if environment == "production":
-       # Different service for production
-       monitor = container.get(ProductionMonitor)
-   else:
-       # Different service for development
-       monitor = container.get(DevMonitor)
+       if user_wants_feature_x():
+           # Service created only if feature is used
+           feature_x = await container.get(FeatureXService)
+
+       if environment == "production":
+           # Different service for production
+           monitor = await container.get(ProductionMonitor)
+       else:
+           # Different service for development
+           monitor = await container.get(DevMonitor)
+
+   asyncio.run(main())
 
 4. Better Error Isolation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -108,18 +123,23 @@ Errors in service constructors don't prevent the application from starting:
 
 .. code-block:: python
 
-   # Build succeeds even if OptionalService has constructor issues
-   container = builder.build()
+   import asyncio
 
-   try:
-       # Error only occurs if we actually try to use this service
-       optional = container.get(OptionalService)
-   except InstantiationError:
-       # Handle gracefully - other services still work
-       logger.warning("Optional feature unavailable")
+   async def main():
+       # Build succeeds even if OptionalService has constructor issues
+       container = builder.build()
 
-   # Core services still work fine
-   core = container.get(CoreService)
+       try:
+           # Error only occurs if we actually try to use this service
+           optional = await container.get(OptionalService)
+       except Exception:
+           # Handle gracefully - other services still work
+           logger.warning("Optional feature unavailable")
+
+       # Core services still work fine
+       core = await container.get(CoreService)
+
+   asyncio.run(main())
 
 5. Circular Dependency Detection Without Full Instantiation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -174,23 +194,33 @@ Late binding isn't always the right choice. Consider early binding when:
 
    .. code-block:: python
 
-      # With late binding, this succeeds even if services can't be created
-      container = builder.build()
+      import asyncio
 
-      # You might want to eagerly instantiate critical services
-      container.get(DatabaseConnection)  # Fail immediately if DB is down
-      container.get(ConfigService)       # Fail immediately if config is invalid
+      async def main():
+          # With late binding, this succeeds even if services can't be created
+          container = builder.build()
+
+          # You might want to eagerly instantiate critical services
+          await container.get(DatabaseConnection)  # Fail immediately if DB is down
+          await container.get(ConfigService)       # Fail immediately if config is invalid
+
+      asyncio.run(main())
 
 2. **Warm-Up is Beneficial**
    For some services, instantiation is expensive and you want to do it upfront:
 
    .. code-block:: python
 
-      # Warm up expensive services during startup
-      ml_model = container.get(MachineLearningModel)  # Takes 30 seconds
-      cache = container.get(CacheService)             # Needs initialization
+      import asyncio
 
-      # Now the services are ready for fast access
+      async def main():
+          # Warm up expensive services during startup
+          ml_model = await container.get(MachineLearningModel)  # Takes 30 seconds
+          cache = await container.get(CacheService)             # Needs initialization
+
+          # Now the services are ready for fast access
+
+      asyncio.run(main())
 
 3. **Deterministic Resource Allocation**
    When you need to know upfront what resources will be allocated:
@@ -226,6 +256,8 @@ Consider a web application with these services:
 
 .. code-block:: python
 
+   from hdmi import ContainerBuilder
+
    # Configure all services
    builder = ContainerBuilder()
    builder.register(DatabaseConnection)
@@ -241,17 +273,17 @@ Consider a web application with these services:
 
    # Handle a simple GET request
    @app.get("/health")
-   def health():
+   async def health():
        # Only LoggingService is instantiated
-       logger = container.get(LoggingService)
+       logger = await container.get(LoggingService)
        logger.info("Health check")
        return {"status": "ok"}
 
    # Handle a payment request
    @app.post("/payment")
-   def payment():
+   async def payment():
        # Now PaymentService, DatabaseConnection are instantiated
-       payment_service = container.get(PaymentService)
+       payment_service = await container.get(PaymentService)
        return payment_service.process()
 
 Benefits in this scenario:

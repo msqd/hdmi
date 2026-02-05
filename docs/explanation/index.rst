@@ -54,4 +54,4 @@ Design Principles
 3. **Type-Driven**: Python type annotations define dependencies
 4. **No External DSL**: Pure Python, no YAML/XML configuration required
 5. **Minimal Overhead**: Lightweight and fast
-6. **Introspection First**: Easy to inspect and debug the dependency graph
+6. **Async-First**: All service resolution is async for modern Python applications
