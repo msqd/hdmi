@@ -7,13 +7,26 @@ TEST_COVERAGE ?=
 
 DEV ?= 1
 
-help:  ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Available targets:'
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+help:  ## Show available commands
+	@echo "Available commands:"
+	@echo
+	@echo "\033[1mDevelopment\033[0m"
+	@grep -E '^(install):.*?##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?##"}; {printf "    make \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo
+	@echo "\033[1mTesting & Quality\033[0m"
+	@grep -E '^(test|check):.*?##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?##"}; {printf "    make \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo
+	@echo "\033[1mDocumentation\033[0m"
+	@grep -E '^(docs|docs-watch):.*?##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?##"}; {printf "    make \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo
+	@echo "\033[1mBuild\033[0m"
+	@grep -E '^(wheel):.*?##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?##"}; {printf "    make \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo
+	@echo "\033[1mCleanup\033[0m"
+	@grep -E '^(clean):.*?##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?##"}; {printf "    make \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo
 
-install:
+install:  ## Install dependencies (use DEV=0 for production only)
 	$(UV) pip install -e $(if $(DEV),.[dev],.)
 
 check: install  ## Check and fix code with ruff (lint + format)

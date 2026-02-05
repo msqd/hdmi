@@ -1,26 +1,36 @@
-# hdmi - Dependency Management Interface
+# hdmi
+
+**A lightweight dependency injection framework for Python 3.13+ with type-driven discovery and scope validation.**
+
+[![PyPI version](https://img.shields.io/pypi/v/hdmi.svg)](https://pypi.python.org/pypi/hdmi)
+[![Python versions](https://img.shields.io/pypi/pyversions/hdmi.svg)](https://pypi.python.org/pypi/hdmi)
+[![CI](https://github.com/msqd/hdmi/actions/workflows/cicd.yml/badge.svg)](https://github.com/msqd/hdmi/actions/workflows/cicd.yml)
+[![Documentation](https://readthedocs.org/projects/hdmi/badge/?version=latest)](https://hdmi.readthedocs.io/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > **Warning: Pre-Alpha Software**
 >
-> hdmi is experimental software in active development. Breaking changes may occur
-> until version 1.0. Use with care in production environments.
+> hdmi is experimental software in active development. Breaking changes may occur until version 1.0.
 
-A lightweight dependency injection framework for Python 3.13+ with:
+**Documentation:** [Full Docs](https://hdmi.readthedocs.io/) | [Getting Started](https://hdmi.readthedocs.io/en/latest/tutorials/) | [API Reference](https://hdmi.readthedocs.io/en/latest/reference/)
 
-- **Type-driven dependency discovery** - Uses Python's standard type annotations
-- **Scope-aware validation** - Prevents lifetime bugs at build time
-- **Lazy instantiation** - Services created just-in-time
-- **Early error detection** - Configuration errors caught at build time
+## Features
 
-## Quick Example
+- **Type-driven dependency discovery** — Uses Python's standard type annotations, no decorators needed
+- **Scope-aware validation** — Prevents lifetime bugs at container build time
+- **Lazy instantiation** — Services created just-in-time when first resolved
+- **Two-phase architecture** — Configuration separated from runtime for immutable, validated graphs
 
-### Simple Example (Singleton Services)
+## Quick Start
+
+```bash
+pip install hdmi
+```
 
 ```python
 import asyncio
 from hdmi import ContainerBuilder
 
-# Define your services
 class DatabaseConnection:
     def __init__(self):
         self.connected = True
@@ -34,109 +44,29 @@ class UserService:
         self.repo = repo
 
 async def main():
-    # Configure the container (all singletons by default)
     builder = ContainerBuilder()
     builder.register(DatabaseConnection)
     builder.register(UserRepository)
     builder.register(UserService)
 
-    # Build validates the dependency graph
-    container = builder.build()
-
-    # Resolve services lazily - dependencies are auto-wired!
-    user_service = await container.get(UserService)
+    container = builder.build()  # Validates the dependency graph
+    user_service = await container.get(UserService)  # Auto-wired!
 
 asyncio.run(main())
 ```
 
-### Using Scoped Services
-
-```python
-import asyncio
-from hdmi import ContainerBuilder
-
-async def main():
-    # For request-scoped services (e.g., web requests)
-    builder = ContainerBuilder()
-    builder.register(DatabaseConnection)  # singleton (default)
-    builder.register(UserRepository, scoped=True)  # One per request
-    builder.register(UserService, transient=True)   # New each time
-
-    container = builder.build()
-
-    # Scoped services must be resolved within a scope context
-    async with container.scope() as scoped:
-        user_service = await scoped.get(UserService)
-        # All scoped dependencies share the same instance within this scope
-
-asyncio.run(main())
-```
-
-## Key Features
-
-### Two-Phase Architecture
-
-1. **ContainerBuilder** (Configuration): Register services and define scopes
-2. **Container** (Runtime): Validated, immutable graph for lazy resolution
-
-### Scope Safety
-
-Services have four lifecycles that are validated at build time:
-
-- **Singleton** (default): One instance per container
-- **Scoped**: One instance per scope (e.g., per request)
-- **Transient**: New instance every time
-- **Scoped Transient**: New instance every time, requires scope
-
-**Validation Rules (Simplified):**
-The only invalid dependency is when a non-scoped service (singleton or transient) depends on a scoped service.
-
-```python
-# Valid: Scoped -> Singleton
-builder = ContainerBuilder()
-builder.register(DatabaseConnection)  # singleton (default)
-builder.register(UserRepository, scoped=True)
-
-# Invalid: Singleton -> Scoped (raises ScopeViolationError)
-builder = ContainerBuilder()
-builder.register(RequestHandler, scoped=True)
-builder.register(SingletonService)  # singleton depends on scoped!
-container = builder.build()  # ScopeViolationError!
-```
-
-### Type-Driven Dependencies
-
-Dependencies are automatically discovered from type annotations:
-
-```python
-class ServiceA:
-    def __init__(self, dep: DependencyType):
-        self.dep = dep
-```
-
-No decorators or manual wiring required!
-
-## Installation
-
-```bash
-pip install hdmi
-```
+For scoped services (per-request lifecycles), transient services, and scope validation rules, see the [documentation](https://hdmi.readthedocs.io/).
 
 ## Development
 
-This project uses [uv](https://github.com/astral-sh/uv) for dependency management and follows strict TDD methodology.
+This project follows strict TDD methodology. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ```bash
-# Run all checks (linting, type checking, tests)
-make test
-
-# Build documentation
-make docs
-
-# See all available commands
-make help
+make test    # Run all tests
+make docs    # Build documentation
+make help    # Show all available commands
 ```
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License — see [LICENSE](LICENSE) for details.
