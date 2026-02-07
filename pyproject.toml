@@ -11,6 +11,15 @@ requires-python = ">=3.13"
 dependencies = [
     "anyio>=4.0.0",
 ]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
 
 [project.urls]
 Homepage = "https://github.com/msqd/hdmi"
