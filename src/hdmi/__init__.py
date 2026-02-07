@@ -7,7 +7,7 @@ A lightweight dependency injection framework with:
 - Early error detection
 """
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 from hdmi.builders import ContainerBuilder
 from hdmi.containers import Container, ScopedContainer
