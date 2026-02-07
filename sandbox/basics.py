@@ -1,3 +1,5 @@
+import asyncio
+
 from hdmi import ContainerBuilder
 
 
@@ -18,35 +20,34 @@ class UserService:
         print(f"{type(self).__name__} < {id(self)} > :: __init__()")
 
 
-def main():
+async def main():
     print("=== Basic Registration (shorthand syntax) ===")
     builder = ContainerBuilder()
 
     # Shorthand registration with Type + boolean flags
     builder.register(DatabaseService)  # singleton (default)
     builder.register(UserRepository, scoped=True)  # scoped service
-    builder.register(UserService, transient=True)  # transient service
+    builder.register(UserService, scoped=True, transient=True)  # scoped transient service
 
-    container = builder.build()
+    async with builder.build() as container:
+        unscoped_database_service = await container.get(DatabaseService)
+        assert isinstance(unscoped_database_service, DatabaseService)
 
-    unscoped_database_service = container.get(DatabaseService)
-    assert isinstance(unscoped_database_service, DatabaseService)
+        async with container.scope() as scope:
+            user_service = await scope.get(UserService)
+            assert isinstance(user_service, UserService)
+            assert isinstance(user_service.user_repo, UserRepository)
+            assert isinstance(user_service.user_repo.db_service, DatabaseService)
 
-    with container.scope() as scope:
-        user_service = scope.get(UserService)
-        assert isinstance(user_service, UserService)
-        assert isinstance(user_service.user_repo, UserRepository)
-        assert isinstance(user_service.user_repo.db_service, DatabaseService)
+            user_service2 = await scope.get(UserService)
+            assert user_service is not user_service2  # transient - new instance
+            assert user_service.user_repo is user_service2.user_repo  # scoped - same
+            assert user_service.user_repo.db_service is user_service2.user_repo.db_service  # singleton - same
 
-        user_service2 = scope.get(UserService)
-        assert user_service is not user_service2  # transient - new instance
-        assert user_service.user_repo is user_service2.user_repo  # scoped - same
-        assert user_service.user_repo.db_service is user_service2.user_repo.db_service  # singleton - same
-
-        assert user_service.user_repo.db_service is unscoped_database_service
+            assert user_service.user_repo.db_service is unscoped_database_service
 
     print("\n✅ All examples completed successfully!")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

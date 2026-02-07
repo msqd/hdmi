@@ -1,3 +1,5 @@
+import asyncio
+
 from hdmi import ContainerBuilder
 
 
@@ -26,21 +28,21 @@ class Something:
         self.context = context
 
 
-def main():
+async def main():
     builder = ContainerBuilder()
 
     builder.register(Config)  # autowire=True by default
     builder.register(Context)
     builder.register(Something)
 
-    container = builder.build()
-
-    something = container.get(Something)
-    print(something, something.context)
-    print(f"Context's config: {something.context.config}")
-    print(f"Container's config: {container.get(Config)}")
-    print(f"Are they the same? {something.context.config is container.get(Config)}")
+    async with builder.build() as container:
+        something = await container.get(Something)
+        print(something, something.context)
+        print(f"Context's config: {something.context.config}")
+        container_config = await container.get(Config)
+        print(f"Container's config: {container_config}")
+        print(f"Are they the same? {something.context.config is container_config}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

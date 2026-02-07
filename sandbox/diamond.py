@@ -1,12 +1,13 @@
 import asyncio
+import time
 
 from hdmi import ContainerBuilder
 
-start_time = asyncio.get_event_loop().time()
+start_time = time.monotonic()
 
 
 def elapsed():
-    return int(asyncio.get_event_loop().time() - start_time)
+    return int(time.monotonic() - start_time)
 
 
 class A:
