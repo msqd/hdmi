@@ -14,7 +14,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/msqd/hdmi"
-Documentation = "https://hdmi.readthedocs.io/"
+Documentation = "https://python-hdmi.readthedocs.io/"
 Repository = "https://github.com/msqd/hdmi"
 Issues = "https://github.com/msqd/hdmi/issues"
 Changelog = "https://github.com/msqd/hdmi/blob/main/CHANGELOG.md"

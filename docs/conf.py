@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath("../src"))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "hdmi"
-copyright = "2025, Romain Dorgueil"
+copyright = "2025-2026, Romain Dorgueil"
 author = "Romain Dorgueil"
 release = "0.1.0"
 
