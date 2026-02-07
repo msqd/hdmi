@@ -9,13 +9,15 @@ import sys
 # Add the src directory to the path so we can import the package
 sys.path.insert(0, os.path.abspath("../src"))
 
+from hdmi import __version__
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "hdmi"
 copyright = "2025-2026, Romain Dorgueil"
 author = "Romain Dorgueil"
-release = "0.1.0"
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

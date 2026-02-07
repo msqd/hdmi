@@ -1,6 +1,6 @@
 # hdmi
 
-**A lightweight dependency injection framework for Python 3.13+ with type-driven discovery and scope validation.**
+**Lightweight dependency injection for Python 3.13+**
 
 [![PyPI version](https://img.shields.io/pypi/v/hdmi.svg)](https://pypi.org/project/hdmi/)
 [![Python versions](https://img.shields.io/pypi/pyversions/hdmi.svg)](https://pypi.org/project/hdmi/)

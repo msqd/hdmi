@@ -1,5 +1,5 @@
-hdmi - Dynamic Dependency Injection for Python
-==============================================
+hdmi - Lightweight DI for Python 3.13+
+======================================
 
 .. warning::
 
@@ -8,7 +8,7 @@ hdmi - Dynamic Dependency Injection for Python
    hdmi is experimental software in active development. Breaking changes may occur
    until version 1.0. Use with care in production environments.
 
-**hdmi** is a dependency injection framework for Python that manages dynamic dependencies with late (just-in-time) resolution.
+**hdmi** is a lightweight dependency injection framework with type-driven discovery and scope validation.
 
 .. toctree::
    :maxdepth: 2

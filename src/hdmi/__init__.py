@@ -1,11 +1,4 @@
-"""hdmi - Dynamic Dependency Injection for Python.
-
-A lightweight dependency injection framework with:
-- Type-driven dependency discovery
-- Scope-aware validation
-- Lazy instantiation
-- Early error detection
-"""
+"""hdmi - Lightweight dependency injection for Python 3.13+."""
 
 __version__ = "0.2.3"
 

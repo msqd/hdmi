@@ -1,7 +1,7 @@
 [project]
 name = "hdmi"
 dynamic = ["version"]
-description = "A dependency injection framework for Python with dynamic late-binding resolution"
+description = "Lightweight dependency injection for Python 3.13+"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [

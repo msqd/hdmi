@@ -12,9 +12,8 @@ Understanding-oriented discussions about architecture and design decisions.
 What is hdmi?
 -------------
 
-**hdmi** is a dependency injection framework for Python that focuses on simplicity,
-type safety, late-binding resolution, and scope-aware validation. Unlike many DI frameworks,
-hdmi separates configuration from validation/runtime, giving you:
+**hdmi** is a lightweight dependency injection framework for Python 3.13+. It separates
+configuration from validation/runtime, giving you:
 
 - **Early error detection**: Configuration issues (cycles, scopes, missing deps) caught at build time
 - **Lazy instantiation**: Services are created only when needed
