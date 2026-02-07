@@ -3,9 +3,10 @@
 **A lightweight dependency injection framework for Python 3.13+ with type-driven discovery and scope validation.**
 
 [![PyPI version](https://img.shields.io/pypi/v/hdmi.svg)](https://pypi.org/project/hdmi/)
+[![Python versions](https://img.shields.io/pypi/pyversions/hdmi.svg)](https://pypi.org/project/hdmi/)
 [![CI](https://github.com/msqd/hdmi/actions/workflows/cicd.yml/badge.svg)](https://github.com/msqd/hdmi/actions/workflows/cicd.yml)
 [![Documentation](https://readthedocs.org/projects/python-hdmi/badge/?version=latest)](https://python-hdmi.readthedocs.io/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > **Warning: Pre-Alpha Software**
 >
