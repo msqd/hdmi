@@ -1,6 +1,6 @@
 """hdmi - Lightweight dependency injection for Python 3.13+."""
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 from hdmi.builders import ContainerBuilder
 from hdmi.containers import Container, ScopedContainer
